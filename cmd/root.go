@@ -17,6 +17,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/TejaBeta/kubectl-istiolog/pkg"
 	"github.com/spf13/cobra"
 )
 
@@ -34,6 +35,7 @@ var rootCmd = &cobra.Command{
 Happy Debugging!!!⛵️⛵️⛵️`,
 
 	Run: func(cmd *cobra.Command, args []string) {
+		pkg.KubectlIstioLog(flagVersion)
 	},
 }
 
