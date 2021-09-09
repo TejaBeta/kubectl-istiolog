@@ -22,9 +22,6 @@ jobs:
 
       - name: Go Building
         run: |
-          go env
-          go get -u golang.org/x/lint/golint
           go test -v -race ./...
           go vet ./...
-          golint ./...
           go build main.go
