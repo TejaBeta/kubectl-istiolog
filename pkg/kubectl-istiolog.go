@@ -14,10 +14,10 @@ limitations under the License.
 
 package pkg
 
-import "github.com/TejaBeta/kubectl-istiolog/internal/util"
+import (
+	log "github.com/sirupsen/logrus"
+)
 
-func KubectlIstioLog(vFlag bool) {
-	if vFlag {
-		util.GetVersion()
-	}
+func KubectlIstioLog() {
+	log.Println("Hello I'm here !")
 }

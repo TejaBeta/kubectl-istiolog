@@ -18,11 +18,18 @@ import (
 	"os"
 
 	"github.com/TejaBeta/kubectl-istiolog/pkg"
+	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
 
 var (
+	version string
+	commit  string
+)
+
+var (
 	flagVersion bool
+	flagDebug   bool
 )
 
 // rootCmd represents the base command when called without any subcommands
@@ -35,7 +42,7 @@ var rootCmd = &cobra.Command{
 Happy Debugging!!!⛵️⛵️⛵️`,
 
 	Run: func(cmd *cobra.Command, args []string) {
-		pkg.KubectlIstioLog(flagVersion)
+		pkg.KubectlIstioLog()
 	},
 }
 
@@ -47,5 +54,17 @@ func Execute() {
 }
 
 func init() {
+	cobra.OnInitialize(func() {
+		if flagVersion {
+			fmt.Println("version:", version)
+			fmt.Println("commit:", commit)
+		}
+		if flagDebug {
+			log.SetLevel(log.DebugLevel)
+		} else {
+			log.SetLevel(log.WarnLevel)
+		}
+	})
+	rootCmd.Flags().BoolVar(&flagDebug, "debug", false, "Set debug mode on")
 	rootCmd.Flags().BoolVar(&flagVersion, "version", false, "Get version info")
 }

@@ -14,9 +14,6 @@ limitations under the License.
 package main
 
 import (
-	"os"
-	"strconv"
-
 	"github.com/TejaBeta/kubectl-istiolog/cmd"
 	log "github.com/sirupsen/logrus"
 )
@@ -27,12 +24,5 @@ func main() {
 		FullTimestamp: true,
 	})
 
-	isDebug, _ := strconv.ParseBool(os.Getenv("ISTIOLOG_TOOL_DEBUG"))
-
-	if isDebug {
-		log.SetLevel(log.DebugLevel)
-	} else {
-		log.SetLevel(log.WarnLevel)
-	}
 	cmd.Execute()
 }
