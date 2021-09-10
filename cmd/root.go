@@ -17,7 +17,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/TejaBeta/kubectl-istiolog/pkg"
+	pkg "github.com/TejaBeta/kubectl-istiolog/pkg/kubectl-istiolog"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
@@ -28,21 +28,20 @@ var (
 )
 
 var (
-	flagVersion bool
-	flagDebug   bool
+	flagVersion   bool
+	flagDebug     bool
+	flagNameSpace string
+	flagFollow    bool
 )
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
-	Use:   "kubectl-istiolog",
-	Short: "A Kubectl plugin to debug Istio logs",
-	Long: `kubectl istiolog is a small plugin to change envoy log
-	and also provides a functionality to watch:
-
-Happy Debugging!!!⛵️⛵️⛵️`,
+	Args:  cobra.MinimumNArgs(1),
+	Use:   "kubectl istiolog [pod] [flags]",
+	Short: "A Kubectl plugin to manage and set envoy log levels",
 
 	Run: func(cmd *cobra.Command, args []string) {
-		pkg.KubectlIstioLog()
+		pkg.KubectlIstioLog(args[0], flagNameSpace, flagFollow)
 	},
 }
 
@@ -67,4 +66,6 @@ func init() {
 	})
 	rootCmd.Flags().BoolVarP(&flagDebug, "debug", "d", false, "Set debug mode on")
 	rootCmd.Flags().BoolVarP(&flagVersion, "version", "v", false, "Get version info")
+	rootCmd.Flags().StringVarP(&flagNameSpace, "namespace", "n", "default", "Namespace in current context")
+	rootCmd.Flags().BoolVarP(&flagFollow, "follow", "f", false, "Specify if the logs should be streamed")
 }

@@ -18,6 +18,6 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-func KubectlIstioLog() {
-	log.Println("Hello I'm here !")
+func KubectlIstioLog(pod string, namespace string, follow bool) {
+	log.Println(pod, namespace, follow)
 }
