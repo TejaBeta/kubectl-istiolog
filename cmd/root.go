@@ -65,6 +65,6 @@ func init() {
 			log.SetLevel(log.WarnLevel)
 		}
 	})
-	rootCmd.Flags().BoolVar(&flagDebug, "debug", false, "Set debug mode on")
-	rootCmd.Flags().BoolVar(&flagVersion, "version", false, "Get version info")
+	rootCmd.Flags().BoolVarP(&flagDebug, "debug", "d", false, "Set debug mode on")
+	rootCmd.Flags().BoolVarP(&flagVersion, "version", "v", false, "Get version info")
 }
