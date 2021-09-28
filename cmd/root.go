@@ -32,6 +32,7 @@ var (
 	flagDebug     bool
 	flagNameSpace string
 	flagFollow    bool
+	flagLogLevel  string
 )
 
 // rootCmd represents the base command when called without any subcommands
@@ -41,7 +42,7 @@ var rootCmd = &cobra.Command{
 	Short: "A Kubectl plugin to manage and set envoy log levels",
 
 	Run: func(cmd *cobra.Command, args []string) {
-		pkg.KubectlIstioLog(args[0], flagNameSpace, flagFollow)
+		pkg.KubectlIstioLog(args[0], flagNameSpace, flagLogLevel, flagFollow)
 	},
 }
 
@@ -68,4 +69,5 @@ func init() {
 	rootCmd.Flags().BoolVarP(&flagVersion, "version", "v", false, "Get version info")
 	rootCmd.Flags().StringVarP(&flagNameSpace, "namespace", "n", "default", "Namespace in current context")
 	rootCmd.Flags().BoolVarP(&flagFollow, "follow", "f", false, "Specify if the logs should be streamed")
+	rootCmd.Flags().StringVarP(&flagLogLevel, "level", "l", "warning", "Comma-separated minimum per-logger level of messages to output")
 }

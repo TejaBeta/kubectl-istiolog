@@ -18,6 +18,6 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-func KubectlIstioLog(pod string, namespace string, follow bool) {
-	log.Println(pod, namespace, follow)
+func KubectlIstioLog(pod string, namespace string, logLevel string, follow bool) {
+	log.Println(pod, namespace, logLevel, follow)
 }
