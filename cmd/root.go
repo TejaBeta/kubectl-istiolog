@@ -17,7 +17,7 @@ import (
 	"fmt"
 	"os"
 
-	pkg "github.com/TejaBeta/kubectl-istiolog/pkg/kubectl-istiolog"
+	internal "github.com/TejaBeta/kubectl-istiolog/internal"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
@@ -42,7 +42,7 @@ var rootCmd = &cobra.Command{
 	Short: "A Kubectl plugin to manage and set envoy log levels",
 
 	Run: func(cmd *cobra.Command, args []string) {
-		pkg.KubectlIstioLog(args[0], flagNameSpace, flagLogLevel, flagFollow)
+		internal.KubectlIstioLog(args[0], flagNameSpace, flagLogLevel, flagFollow)
 	},
 }
 
