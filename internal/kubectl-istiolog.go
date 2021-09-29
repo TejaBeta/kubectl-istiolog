@@ -17,14 +17,22 @@ package internal
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 
 	log "github.com/sirupsen/logrus"
+	"istio.io/istio/pkg/kube"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
+)
+
+var (
+	kubeClient    = newKubeClient
+	kubeconfig    string
+	configContext string
 )
 
 type options struct {
@@ -82,8 +90,31 @@ func homeDir() string {
 	return os.Getenv("USERPROFILE")
 }
 
+func newKubeClientWithRevision(kubeconfig, configContext string, revision string) (kube.ExtendedClient, error) {
+	return kube.NewExtendedClient(kube.BuildClientCmd(kubeconfig, configContext), revision)
+}
+
+func newKubeClient(kubeconfig, configContext string) (kube.ExtendedClient, error) {
+	return newKubeClientWithRevision(kubeconfig, configContext, "")
+}
+
+func setupEnvoyLog(param, pod, namespace string) (string, error) {
+	kubeClient, err := kubeClient(kubeconfig, configContext)
+	if err != nil {
+		return "", fmt.Errorf("failed to create Kubernetes client: %v", err)
+	}
+	path := "logging"
+	if param != "" {
+		path = path + "?" + param
+	}
+	result, err := kubeClient.EnvoyDo(context.TODO(), pod, namespace, "POST", path)
+	if err != nil {
+		return "", fmt.Errorf("failed to execute command on Envoy: %v", err)
+	}
+	return string(result), nil
+}
+
 func KubectlIstioLog(pod string, namespace string, logLevel string, follow bool) {
-	log.Println(pod, namespace, logLevel, follow)
 	context, err := getContext()
 	if err != nil {
 		log.Fatalln(err)
@@ -95,7 +126,12 @@ func KubectlIstioLog(pod string, namespace string, logLevel string, follow bool)
 
 	if options.isPodExists(pod) {
 		log.Println("Pod exists")
+		logNames, err := setupEnvoyLog("", pod, namespace)
+		log.Println(logNames)
+		if err != nil {
+			log.Errorln(err)
+		}
 	} else {
-		log.Println("Pod doesn't exist")
+		log.Errorln("Pod doesn't exist")
 	}
 }
