@@ -204,16 +204,8 @@ func setupEnvoyLog(param, pod, namespace string) (string, error) {
 	return string(result), nil
 }
 
-func validateLogLevel(logLevel string, pod string, namespace string) error {
-
-	var logNames []string
+func handleLog(logLevel string, pod string, namespace string) error {
 	destLoggerLevels := map[string]Level{}
-
-	types, err := setupEnvoyLog("", pod, namespace)
-	if err != nil {
-		return fmt.Errorf("%v", err)
-	}
-	logNames = append(logNames, types)
 
 	levels := strings.Split(logLevel, ",")
 	for _, ol := range levels {
@@ -228,10 +220,11 @@ func validateLogLevel(logLevel string, pod string, namespace string) error {
 			}
 		} else {
 			loggerLevel := regexp.MustCompile(`[:=]`).Split(ol, 2)
-			for _, logName := range logNames {
-				if !strings.Contains(logName, loggerLevel[0]) {
-					return fmt.Errorf("unrecognized logger name: %v", loggerLevel[0])
+			for _, logName := range allLoggers {
+				if logName == loggerLevel[0] {
+					break
 				}
+				return fmt.Errorf("unrecognized logger name: %v", loggerLevel[0])
 			}
 			level, ok := stringToLevel[loggerLevel[1]]
 			if !ok {
@@ -241,6 +234,25 @@ func validateLogLevel(logLevel string, pod string, namespace string) error {
 		}
 	}
 
+	var resp string
+	var err error
+
+	if len(destLoggerLevels) == 0 {
+		resp, err = setupEnvoyLog("", pod, namespace)
+	} else {
+		if ll, ok := destLoggerLevels[defaultLoggerName]; ok {
+			// update levels of all loggers first
+			resp, err = setupEnvoyLog(defaultLoggerName+"="+levelToString[ll], pod, namespace)
+			delete(destLoggerLevels, defaultLoggerName)
+		}
+		for lg, ll := range destLoggerLevels {
+			resp, err = setupEnvoyLog(lg+"="+levelToString[ll], pod, namespace)
+		}
+	}
+	if err != nil {
+		return err
+	}
+	fmt.Print(resp)
 	return nil
 }
 
@@ -255,8 +267,8 @@ func KubectlIstioLog(pod string, namespace string, logLevel string, follow bool)
 	}
 
 	if options.isPodExists(pod) {
-		validateLogLevel(logLevel, pod, namespace)
+		log.Println(handleLog(logLevel, pod, namespace))
 	} else {
-		log.Errorln("Pod doesn't exist")
+		log.Errorf("%s pod doesn't exist", pod)
 	}
 }
