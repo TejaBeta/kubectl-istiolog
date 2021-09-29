@@ -29,7 +29,7 @@ var (
 
 var (
 	flagVersion   bool
-	flagDebug     bool
+	flagVerbose   bool
 	flagNameSpace string
 	flagFollow    bool
 	flagLogLevel  string
@@ -59,13 +59,13 @@ func init() {
 			fmt.Println("version:", version)
 			fmt.Println("commit:", commit)
 		}
-		if flagDebug {
+		if flagVerbose {
 			log.SetLevel(log.DebugLevel)
 		} else {
 			log.SetLevel(log.WarnLevel)
 		}
 	})
-	rootCmd.Flags().BoolVarP(&flagDebug, "debug", "d", false, "Set debug mode on")
+	rootCmd.Flags().BoolVar(&flagVerbose, "verbose", false, "Verbose mode on")
 	rootCmd.Flags().BoolVarP(&flagVersion, "version", "v", false, "Get version info")
 	rootCmd.Flags().StringVarP(&flagNameSpace, "namespace", "n", "default", "Namespace in current context")
 	rootCmd.Flags().BoolVarP(&flagFollow, "follow", "f", false, "Specify if the logs should be streamed")

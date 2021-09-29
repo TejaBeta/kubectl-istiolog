@@ -125,7 +125,6 @@ func KubectlIstioLog(pod string, namespace string, logLevel string, follow bool)
 	}
 
 	if options.isPodExists(pod) {
-		log.Println("Pod exists")
 		logNames, err := setupEnvoyLog("", pod, namespace)
 		log.Println(logNames)
 		if err != nil {
