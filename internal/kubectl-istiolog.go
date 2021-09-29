@@ -20,6 +20,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
+	"strings"
 
 	log "github.com/sirupsen/logrus"
 	"istio.io/istio/pkg/kube"
@@ -33,6 +35,94 @@ var (
 	kubeClient    = newKubeClient
 	kubeconfig    string
 	configContext string
+)
+
+type Level int
+
+const (
+	defaultLoggerName  = "level"
+	defaultOutputLevel = WarningLevel
+)
+
+var allLoggers = []string{
+	"admin",
+	"aws",
+	"assert",
+	"backtrace",
+	"client",
+	"config",
+	"connection",
+	"conn_handler", // Added through https://github.com/envoyproxy/envoy/pull/8263
+	"dubbo",
+	"file",
+	"filter",
+	"forward_proxy",
+	"grpc",
+	"hc",
+	"health_checker",
+	"http",
+	"http2",
+	"hystrix",
+	"init",
+	"io",
+	"jwt",
+	"kafka",
+	"lua",
+	"main",
+	"misc",
+	"mongo",
+	"quic",
+	"pool",
+	"rbac",
+	"redis",
+	"router",
+	"runtime",
+	"stats",
+	"secret",
+	"tap",
+	"testing",
+	"thrift",
+	"tracing",
+	"upstream",
+	"udp",
+	"wasm",
+}
+
+var levelToString = map[Level]string{
+	TraceLevel:    "trace",
+	DebugLevel:    "debug",
+	InfoLevel:     "info",
+	WarningLevel:  "warning",
+	ErrorLevel:    "error",
+	CriticalLevel: "critical",
+	OffLevel:      "off",
+}
+
+var stringToLevel = map[string]Level{
+	"trace":    TraceLevel,
+	"debug":    DebugLevel,
+	"info":     InfoLevel,
+	"warning":  WarningLevel,
+	"error":    ErrorLevel,
+	"critical": CriticalLevel,
+	"off":      OffLevel,
+}
+
+const (
+	// OffLevel disables logging
+	OffLevel Level = iota
+	// CriticalLevel enables critical level logging
+	CriticalLevel
+	// ErrorLevel enables error level logging
+	ErrorLevel
+	// WarningLevel enables warning level logging
+	WarningLevel
+	// InfoLevel enables info level logging
+	InfoLevel
+	// DebugLevel enables debug level logging
+	DebugLevel
+	// TraceLevel enables trace level logging
+	TraceLevel
 )
 
 type options struct {
@@ -114,6 +204,46 @@ func setupEnvoyLog(param, pod, namespace string) (string, error) {
 	return string(result), nil
 }
 
+func validateLogLevel(logLevel string, pod string, namespace string) error {
+
+	var logNames []string
+	destLoggerLevels := map[string]Level{}
+
+	types, err := setupEnvoyLog("", pod, namespace)
+	if err != nil {
+		return fmt.Errorf("%v", err)
+	}
+	logNames = append(logNames, types)
+
+	levels := strings.Split(logLevel, ",")
+	for _, ol := range levels {
+		if !strings.Contains(ol, ":") && !strings.Contains(ol, "=") {
+			level, ok := stringToLevel[ol]
+			if ok {
+				destLoggerLevels = map[string]Level{
+					defaultLoggerName: level,
+				}
+			} else {
+				return fmt.Errorf("unrecognized logging level: %v", ol)
+			}
+		} else {
+			loggerLevel := regexp.MustCompile(`[:=]`).Split(ol, 2)
+			for _, logName := range logNames {
+				if !strings.Contains(logName, loggerLevel[0]) {
+					return fmt.Errorf("unrecognized logger name: %v", loggerLevel[0])
+				}
+			}
+			level, ok := stringToLevel[loggerLevel[1]]
+			if !ok {
+				return fmt.Errorf("unrecognized logging level: %v", loggerLevel[1])
+			}
+			destLoggerLevels[loggerLevel[0]] = level
+		}
+	}
+
+	return nil
+}
+
 func KubectlIstioLog(pod string, namespace string, logLevel string, follow bool) {
 	context, err := getContext()
 	if err != nil {
@@ -125,11 +255,7 @@ func KubectlIstioLog(pod string, namespace string, logLevel string, follow bool)
 	}
 
 	if options.isPodExists(pod) {
-		logNames, err := setupEnvoyLog("", pod, namespace)
-		log.Println(logNames)
-		if err != nil {
-			log.Errorln(err)
-		}
+		validateLogLevel(logLevel, pod, namespace)
 	} else {
 		log.Errorln("Pod doesn't exist")
 	}
