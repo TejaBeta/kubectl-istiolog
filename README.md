@@ -1,7 +1,7 @@
 # kubectl-istiolog [![build](https://github.com/TejaBeta/kubectl-istiolog/actions/workflows/build.yml/badge.svg?branch=main)](https://github.com/TejaBeta/kubectl-istiolog/actions/workflows/build.yml) [![License](https://img.shields.io/badge/License-Apache%202.0-green.svg)](./LICENSE)
 
-A plugin to manipulate `istio-proxy` sidecar container logging level and tail
-logs.
+A plugin to manipulate `istio-proxy` logging level and also 
+provides tailing of logs.
 
 ## Usage
 
@@ -9,15 +9,16 @@ logs.
 kubectl istiolog <<podname>> -n <<namespace>> -l debug -f
 ```
 
-`istio-proxy` comes with a default logging level as `Warning`, the above
-command updates the logging level of Envoy instance to `debug` and also
-tails the logs of `istio-proxy` container in one go. 
+`istio-proxy`(envoy instance) comes with a default logging level as `Warning`, 
+the above command updates the logging level of Envoy instance to `debug` and 
+also helps in tailing the logs of `istio-proxy` container which is a sidecare
+in one go. 
 
 `kubectl istiolog` supports all the logger names and logger levels similar
 to `istio proxy-config`.
 
-Envoy instance logging level will be set back to default logging level 
-`Warning` on exit.
+On exit, logging level of Envoy instance will be reverted back to default 
+logging level `Warning`.
 
 ## Help Menu
 
