@@ -20,9 +20,11 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"regexp"
 	"strings"
+	"syscall"
 
 	log "github.com/sirupsen/logrus"
 	"istio.io/istio/pkg/kube"
@@ -322,6 +324,18 @@ func KubectlIstioLog(pod string, namespace string, logLevel string, follow bool)
 	}
 
 	if follow {
+		c := make(chan os.Signal)
+		signal.Notify(c, os.Interrupt, syscall.SIGTERM)
+
+		go func() {
+			<-c
+			err := handleLog(levelToString[defaultOutputLevel], pod, namespace)
+			if err != nil {
+				fmt.Print(err)
+			}
+			os.Exit(0)
+		}()
+
 		err := options.streamLogs(pod, istioContainer)
 		if err != nil {
 			return err
