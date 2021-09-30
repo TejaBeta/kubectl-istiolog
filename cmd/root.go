@@ -37,8 +37,7 @@ var (
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
-	Args:  cobra.MinimumNArgs(1),
-	Use:   "kubectl istiolog [pod] [flags]",
+	Use:   "kubectl-istiolog [pod] [flags]",
 	Short: "A Kubectl plugin to manage and set envoy log levels",
 
 	Run: func(cmd *cobra.Command, args []string) {
@@ -66,10 +65,6 @@ func Execute() {
 
 func init() {
 	cobra.OnInitialize(func() {
-		if flagVersion {
-			fmt.Println("version:", version)
-			fmt.Println("commit:", commit)
-		}
 		if flagVerbose {
 			log.SetLevel(log.DebugLevel)
 		} else {
@@ -77,7 +72,6 @@ func init() {
 		}
 	})
 	rootCmd.Flags().BoolVar(&flagVerbose, "verbose", false, "Verbose mode on")
-	rootCmd.Flags().BoolVarP(&flagVersion, "version", "v", false, "Get version info")
 	rootCmd.Flags().StringVarP(&flagNameSpace, "namespace", "n", "default", "Namespace in current context")
 	rootCmd.Flags().BoolVarP(&flagFollow, "follow", "f", false, "Specify if the logs should be streamed")
 	rootCmd.Flags().StringVarP(&flagLogLevel, "level", "l", "warning", "Comma-separated minimum per-logger level of messages to output")
