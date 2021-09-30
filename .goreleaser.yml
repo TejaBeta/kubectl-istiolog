@@ -5,7 +5,7 @@
 builds:
   - main: ./main.go
     binary: kubectl-istiolog
-    ldflags: -s -w -X github.com/tejabeta/kubectl-istiolog/cmd/cmd.version={{.Version}} -X github.com/tejabeta/kubectl-istiolog/cmd/cmd.commit={{.Commit}}
+    ldflags: -s -w -X github.com/tejabeta/kubectl-istiolog/cmd.version={{.Version}} -X github.com/tejabeta/kubectl-istiolog/cmd.commit={{.Commit}}
     goos:
       - windows
       - darwin
