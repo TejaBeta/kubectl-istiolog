@@ -219,13 +219,20 @@ func handleLog(logLevel string, pod string, namespace string) error {
 				return fmt.Errorf("unrecognized logging level: %v", ol)
 			}
 		} else {
+			invalidLogName := false
 			loggerLevel := regexp.MustCompile(`[:=]`).Split(ol, 2)
+
 			for _, logName := range allLoggers {
 				if logName == loggerLevel[0] {
 					break
 				}
+				invalidLogName = true
+			}
+
+			if invalidLogName {
 				return fmt.Errorf("unrecognized logger name: %v", loggerLevel[0])
 			}
+
 			level, ok := stringToLevel[loggerLevel[1]]
 			if !ok {
 				return fmt.Errorf("unrecognized logging level: %v", loggerLevel[1])
