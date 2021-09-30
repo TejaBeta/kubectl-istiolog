@@ -1,0 +1,24 @@
+
+   
+# .goreleaser.yml
+# Build customization
+builds:
+  - main: ./main.go
+    binary: kubectl-istiolog
+    ldflags: -s -w -X github.com/tejabeta/kubectl-istiolog/cmd/cmd.version={{.Version}} -X github.com/tejabeta/kubectl-istiolog/cmd/cmd.commit={{.Commit}}
+    goos:
+      - windows
+      - darwin
+      - linux
+    goarch:
+      - amd64
+      - arm64
+    env:
+      - CGO_ENABLED=0
+archives:
+  - id: kubectl-istiolog
+    format: tar.gz
+    replacements:
+      amd64: x86_64
+      darwin: Darwin
+      linux: Linux
