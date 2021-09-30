@@ -16,23 +16,17 @@ package internal
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"os"
 	"os/signal"
-	"path/filepath"
 	"regexp"
 	"strings"
 	"syscall"
 
-	log "github.com/sirupsen/logrus"
 	"istio.io/istio/pkg/kube"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
-	"k8s.io/client-go/tools/clientcmd"
 )
 
 var (
@@ -130,23 +124,6 @@ const (
 	TraceLevel
 )
 
-type options struct {
-	clientset kubernetes.Interface
-	namespace string
-}
-
-func getOpts(context *rest.Config, ns string) (*options, error) {
-	cs, err := kubernetes.NewForConfig(context)
-	if err != nil {
-		return nil, err
-	}
-
-	return &options{
-		clientset: cs,
-		namespace: ns,
-	}, nil
-}
-
 func (opts *options) isPodExists(podName string) error {
 	result, err := opts.clientset.CoreV1().Pods(opts.namespace).List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
@@ -160,32 +137,6 @@ func (opts *options) isPodExists(podName string) error {
 	}
 
 	return fmt.Errorf("%v Pod doesn't exist", podName)
-}
-
-func getContext() (*rest.Config, error) {
-	path, err := configPath()
-	if err != nil {
-		return nil, err
-	}
-	config, err := clientcmd.BuildConfigFromFlags("", path)
-	if err != nil {
-		return nil, err
-	}
-	return config, nil
-}
-
-func configPath() (string, error) {
-	if home := homeDir(); home != "" {
-		return filepath.Join(home, ".kube", "config"), nil
-	}
-	return "", errors.New("HOME OR USERPROFILE env variables are not set")
-}
-
-func homeDir() string {
-	if home := os.Getenv("HOME"); home != "" {
-		return home
-	}
-	return os.Getenv("USERPROFILE")
 }
 
 func newKubeClientWithRevision(kubeconfig, configContext string, revision string) (kube.ExtendedClient, error) {
@@ -303,22 +254,13 @@ func (opts *options) streamLogs(podName string, containerName string) error {
 	return nil
 }
 
-func KubectlIstioLog(pod string, namespace string, logLevel string, follow bool) error {
-	context, err := getContext()
-	if err != nil {
-		log.Fatalln(err)
-	}
-	options, err := getOpts(context, namespace)
-	if err != nil {
-		log.Fatalln(err)
-	}
-
-	err = options.isPodExists(pod)
+func (options *options) KubectlIstioLog(pod string, logLevel string, follow bool) error {
+	err := options.isPodExists(pod)
 	if err != nil {
 		return err
 	}
 
-	err = handleLog(logLevel, pod, namespace)
+	err = handleLog(logLevel, pod, options.namespace)
 	if err != nil {
 		return err
 	}
@@ -329,7 +271,7 @@ func KubectlIstioLog(pod string, namespace string, logLevel string, follow bool)
 
 		go func() {
 			<-c
-			err := handleLog(levelToString[defaultOutputLevel], pod, namespace)
+			err := handleLog(levelToString[defaultOutputLevel], pod, options.namespace)
 			if err != nil {
 				fmt.Print(err)
 			}
