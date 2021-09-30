@@ -42,7 +42,10 @@ var rootCmd = &cobra.Command{
 	Short: "A Kubectl plugin to manage and set envoy log levels",
 
 	Run: func(cmd *cobra.Command, args []string) {
-		internal.KubectlIstioLog(args[0], flagNameSpace, flagLogLevel, flagFollow)
+		err := internal.KubectlIstioLog(args[0], flagNameSpace, flagLogLevel, flagFollow)
+		if err != nil {
+			panic(err)
+		}
 	},
 }
 

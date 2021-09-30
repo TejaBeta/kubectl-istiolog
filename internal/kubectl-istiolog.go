@@ -18,6 +18,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -25,6 +26,7 @@ import (
 
 	log "github.com/sirupsen/logrus"
 	"istio.io/istio/pkg/kube"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -109,6 +111,7 @@ var stringToLevel = map[string]Level{
 }
 
 const (
+	istioContainer = "istio-proxy"
 	// OffLevel disables logging
 	OffLevel Level = iota
 	// CriticalLevel enables critical level logging
@@ -142,16 +145,19 @@ func getOpts(context *rest.Config, ns string) (*options, error) {
 	}, nil
 }
 
-func (opts *options) isPodExists(podName string) bool {
+func (opts *options) isPodExists(podName string) error {
 	result, err := opts.clientset.CoreV1().Pods(opts.namespace).List(context.TODO(), metav1.ListOptions{})
-	if err == nil {
-		for _, pod := range result.Items {
-			if pod.Name == podName {
-				return true
-			}
+	if err != nil {
+		return err
+	}
+
+	for _, pod := range result.Items {
+		if pod.Name == podName {
+			return nil
 		}
 	}
-	return false
+
+	return fmt.Errorf("%v Pod doesn't exist", podName)
 }
 
 func getContext() (*rest.Config, error) {
@@ -263,7 +269,39 @@ func handleLog(logLevel string, pod string, namespace string) error {
 	return nil
 }
 
-func KubectlIstioLog(pod string, namespace string, logLevel string, follow bool) {
+func (opts *options) streamLogs(podName string, containerName string) error {
+	count := int64(1)
+	podLogOptions := corev1.PodLogOptions{
+		Container: containerName,
+		Follow:    true,
+		TailLines: &count,
+	}
+
+	req := opts.clientset.CoreV1().Pods(opts.namespace).GetLogs(podName, &podLogOptions)
+	stream, err := req.Stream(context.TODO())
+	if err != nil {
+		return err
+	}
+	defer stream.Close()
+	for {
+		buf := make([]byte, 2000)
+		numBytes, err := stream.Read(buf)
+		if numBytes == 0 {
+			continue
+		}
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return err
+		}
+		message := string(buf[:numBytes])
+		fmt.Print(message)
+	}
+	return nil
+}
+
+func KubectlIstioLog(pod string, namespace string, logLevel string, follow bool) error {
 	context, err := getContext()
 	if err != nil {
 		log.Fatalln(err)
@@ -273,9 +311,22 @@ func KubectlIstioLog(pod string, namespace string, logLevel string, follow bool)
 		log.Fatalln(err)
 	}
 
-	if options.isPodExists(pod) {
-		log.Println(handleLog(logLevel, pod, namespace))
-	} else {
-		log.Errorf("%s pod doesn't exist", pod)
+	err = options.isPodExists(pod)
+	if err != nil {
+		return err
 	}
+
+	err = handleLog(logLevel, pod, namespace)
+	if err != nil {
+		return err
+	}
+
+	if follow {
+		err := options.streamLogs(pod, istioContainer)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }

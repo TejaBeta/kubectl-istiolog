@@ -423,6 +423,7 @@ istio.io/pkg/log
 istio.io/pkg/structured
 istio.io/pkg/version
 # k8s.io/api v0.22.2
+## explicit
 k8s.io/api/admission/v1
 k8s.io/api/admission/v1beta1
 k8s.io/api/admissionregistration/v1
