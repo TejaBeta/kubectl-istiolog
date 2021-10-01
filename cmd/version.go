@@ -19,6 +19,11 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var (
+	version string
+	commit  string
+)
+
 func init() {
 	rootCmd.AddCommand(versionCmd)
 }
