@@ -368,7 +368,7 @@ gopkg.in/inf.v0
 gopkg.in/yaml.v2
 # gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b
 gopkg.in/yaml.v3
-# istio.io/api v0.0.0-20210922023733-37753c518070
+# istio.io/api v0.0.0-20211001205333-21d8f992ec5d
 istio.io/api/analysis/v1alpha1
 istio.io/api/extensions/v1alpha1
 istio.io/api/label
@@ -415,7 +415,7 @@ istio.io/client-go/pkg/listers/security/v1beta1
 istio.io/client-go/pkg/listers/telemetry/v1alpha1
 # istio.io/gogo-genproto v0.0.0-20210913204419-9ca283dc56e4
 istio.io/gogo-genproto/googleapis/google/api
-# istio.io/istio v0.0.0-20210929173404-1cd8a031ce3c
+# istio.io/istio v0.0.0-20211001235837-615d27f4e9f7
 ## explicit
 istio.io/istio/pkg/kube
 # istio.io/pkg v0.0.0-20210914184925-da9399ebffe5

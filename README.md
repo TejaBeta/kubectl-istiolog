@@ -26,15 +26,23 @@ logging level `Warning`.
 A Kubectl plugin to manage and set envoy log levels
 
 Usage:
-  kubectl istiolog [pod] [flags]
+  kubectl-istiolog [pod] [flags]
+  kubectl-istiolog [command]
+
+Available Commands:
+  completion  generate the autocompletion script for the specified shell
+  help        Help about any command
+  version     print current kubectl-istiolog version
 
 Flags:
   -f, --follow             Specify if the logs should be streamed
-  -h, --help               help for kubectl
+  -h, --help               help for kubectl-istiolog
   -l, --level string       Comma-separated minimum per-logger level of messages to output (default "warning")
   -n, --namespace string   Namespace in current context (default "default")
       --verbose            Verbose mode on
   -v, --version            Get version info
+
+Use "kubectl-istiolog [command] --help" for more information about a command.
 ```
 
 ## Supported Logger Names
