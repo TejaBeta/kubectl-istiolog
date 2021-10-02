@@ -11,7 +11,7 @@ kubectl istiolog <<podname>> -n <<namespace>> -l debug -f
 
 `istio-proxy`(envoy instance) comes with a default logging level as `Warning`, 
 the above command updates the logging level of Envoy instance to `debug` and 
-also helps in tailing the logs of `istio-proxy` container which is a sidecare
+also helps in tailing the logs of `istio-proxy` container which is a sidecar
 in one go. 
 
 `kubectl istiolog` supports all the logger names and logger levels similar
