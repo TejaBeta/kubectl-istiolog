@@ -16,6 +16,7 @@ package main
 import (
 	"github.com/TejaBeta/kubectl-istiolog/cmd"
 	log "github.com/sirupsen/logrus"
+	_ "k8s.io/client-go/plugin/pkg/client/auth"
 )
 
 func main() {
