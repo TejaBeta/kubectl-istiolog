@@ -3,6 +3,16 @@
 A plugin to manipulate `istio-proxy` logging level and also 
 provides tailing of logs.
 
+## Installation
+
+Download precompiled binaries from [GitHub Releases](https://github.com/TejaBeta/kubectl-istiolog/releases).
+
+### Via [Krew](https://github.com/kubernetes-sigs/krew)
+
+```bash
+kubectl krew install istiolog
+```
+
 ## Usage
 
 ```

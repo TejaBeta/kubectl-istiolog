@@ -1,0 +1,47 @@
+apiVersion: krew.googlecontainertools.github.com/v1alpha2
+kind: Plugin
+metadata:
+  name: istiolog
+spec:
+  version: {{ .TagName }}
+  homepage: https://github.com/TejaBeta/kubectl-istiolog
+  shortDescription: Manipulate istio-proxy logging level without istioctl.
+  description: |
+    kubectl-istiolog plugin enables ops-teams and developers to view istio
+    sidecar(istio-proxy) logs by manipulating the logger names and logger 
+    levels of Envoy instance without any additional tools like istioctl. The
+    plugin can also tail istio-proxy logs.
+
+    Example: 
+      kubectl istiolog my-podname-0 -n dev -l debug -f
+  platforms:
+  - selector:
+      matchLabels:
+        os: darwin
+        arch: amd64
+    {{addURIAndSha "https://github.com/TejaBeta/kubectl-istiolog/releases/download/{{ .TagName }}/kubectl-istiolog_{{ .TagName }}_Darwin_x86_64.tar.gz" .TagName }}
+    bin: kubectl-istiolog
+  - selector:
+      matchLabels:
+        os: darwin
+        arch: arm64
+    {{addURIAndSha "https://github.com/TejaBeta/kubectl-istiolog/releases/download/{{ .TagName }}/kubectl-istiolog_{{ .TagName }}_Darwin_arm64.tar.gz" .TagName }}
+    bin: kubectl-istiolog
+  - selector:
+      matchLabels:
+        os: linux
+        arch: amd64
+    {{addURIAndSha "https://github.com/TejaBeta/kubectl-istiolog/releases/download/{{ .TagName }}/kubectl-istiolog_{{ .TagName }}_Linux_x86_64.tar.gz" .TagName }}
+    bin: kubectl-istiolog
+  - selector:
+      matchLabels:
+        os: linux
+        arch: arm64
+    {{addURIAndSha "https://github.com/TejaBeta/kubectl-istiolog/releases/download/{{ .TagName }}/kubectl-istiolog_{{ .TagName }}_Linux_arm64.tar.gz" .TagName }}
+    bin: kubectl-istiolog
+  - selector:
+      matchLabels:
+        os: windows
+        arch: amd64
+    {{addURIAndSha "https://github.com/TejaBeta/kubectl-istiolog/releases/download/{{ .TagName }}/kubectl-istiolog_{{ .TagName }}_windows_x86_64.tar.gz" .TagName }}
+    bin: kubectl-istiolog.exe
