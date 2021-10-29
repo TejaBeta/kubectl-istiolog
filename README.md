@@ -15,7 +15,7 @@ kubectl krew install istiolog
 
 ## Usage
 
-```
+```bash
 kubectl istiolog <<podname>> -n <<namespace>> -l debug -f
 ```
 
@@ -32,7 +32,7 @@ logging level `Warning`.
 
 ## Help Menu
 
-```
+```bash
 A Kubectl plugin to manage and set envoy log levels
 
 Usage:
