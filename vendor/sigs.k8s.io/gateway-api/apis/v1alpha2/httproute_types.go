@@ -28,7 +28,10 @@ import (
 // +kubebuilder:printcolumn:name="Hostnames",type=string,JSONPath=`.spec.hostnames`
 // +kubebuilder:printcolumn:name="Age",type=date,JSONPath=`.metadata.creationTimestamp`
 
-// HTTPRoute is the Schema for the HTTPRoute resource.
+// HTTPRoute provides a way to route HTTP requests. This includes the capability
+// to match requests by hostname, path, header, or query param. Filters can be
+// used to specify additional processing steps. Backends specify where matching
+// requests should be routed.
 type HTTPRoute struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -53,14 +56,13 @@ type HTTPRouteList struct {
 type HTTPRouteSpec struct {
 	CommonRouteSpec `json:",inline"`
 
-	// Hostnames defines a set of hostname that should match against
-	// the HTTP Host header to select a HTTPRoute to process the request.
-	// Hostname is the fully qualified domain name of a network host,
-	// as defined by RFC 3986. Note the following deviations from the
-	// "host" part of the URI as defined in the RFC:
+	// Hostnames defines a set of hostname that should match against the HTTP
+	// Host header to select a HTTPRoute to process the request. This matches
+	// the RFC 1123 definition of a hostname with 2 notable exceptions:
 	//
 	// 1. IPs are not allowed.
-	// 2. The `:` delimiter is not respected because ports are not allowed.
+	// 2. A hostname may be prefixed with a wildcard label (`*.`). The wildcard
+	//    label must appear by itself as the first label.
 	//
 	// If a hostname is specified by both the Listener and HTTPRoute, there
 	// must be at least one intersecting hostname for the HTTPRoute to be
@@ -69,12 +71,11 @@ type HTTPRouteSpec struct {
 	// * A Listener with `test.example.com` as the hostname matches HTTPRoutes
 	//   that have either not specified any hostnames, or have specified at
 	//   least one of `test.example.com` or `*.example.com`.
-	// * A Listener with `*.example.com` as as the hostname matches HTTPRoutes
+	// * A Listener with `*.example.com` as the hostname matches HTTPRoutes
 	//   that have either not specified any hostnames or have specified at least
 	//   one hostname that matches the Listener hostname. For example,
 	//   `test.example.com` and `*.example.com` would both match. On the other
-	//   hand, `a.b.example.com`, `example.com`, and `test.example.net` would
-	//   not match.
+	//   hand, `example.com` and `test.example.net` would not match.
 	//
 	// If both the Listener and HTTPRoute have specified hostnames, any
 	// HTTPRoute hostnames that do not match the Listener hostname MUST be
@@ -82,9 +83,10 @@ type HTTPRouteSpec struct {
 	// HTTPRoute specified `test.example.com` and `test.example.net`,
 	// `test.example.net` must not be considered for a match.
 	//
-	// If hostnames do not match with the criteria above, then the HTTPRoute is
-	// not admitted, and the implementation must raise an 'Admitted' Condition
-	// with a status of `False` for the target Listener(s).
+	// If both the Listener and HTTPRoute have specified hostnames, and none
+	// match with the criteria above, then the HTTPRoute is not accepted. The
+	// implementation must raise an 'Accepted' Condition with a status of
+	// `False` in the corresponding RouteParentStatus.
 	//
 	// Support: Core
 	//
@@ -96,13 +98,13 @@ type HTTPRouteSpec struct {
 	//
 	// +optional
 	// +kubebuilder:validation:MaxItems=16
-	// +kubebuilder:default={{matches: {{path: {type: "Prefix", value: "/"}}}}}
+	// +kubebuilder:default={{matches: {{path: {type: "PathPrefix", value: "/"}}}}}
 	Rules []HTTPRouteRule `json:"rules,omitempty"`
 }
 
 // HTTPRouteRule defines semantics for matching an HTTP request based on
-// conditions, optionally executing additional processing steps, and forwarding
-// the request to an API object.
+// conditions (matches), processing it (filters), and forwarding the request to
+// an API object (backendRefs).
 type HTTPRouteRule struct {
 	// Matches define conditions used for matching the rule against incoming
 	// HTTP requests. Each match is independent, i.e. this rule will be matched
@@ -115,16 +117,16 @@ type HTTPRouteRule struct {
 	// - path:
 	//     value: "/foo"
 	//   headers:
-	//     values:
-	//       version: "2"
+	//   - name: "version"
+	//     value: "v2"
 	// - path:
 	//     value: "/v2/foo"
 	// ```
 	//
-	// For a request to match against this rule, a request should satisfy
+	// For a request to match against this rule, a request must satisfy
 	// EITHER of the two conditions:
 	//
-	// - path prefixed with `/foo` AND contains the header `version: "2"`
+	// - path prefixed with `/foo` AND contains the header `version: v2`
 	// - path prefix of `/v2/foo`
 	//
 	// See the documentation for HTTPRouteMatch on how to specify multiple
@@ -134,26 +136,23 @@ type HTTPRouteRule struct {
 	// path match on "/", which has the effect of matching every
 	// HTTP request.
 	//
+	// Proxy or Load Balancer routing configuration generated from HTTPRoutes
+	// MUST prioritize rules based on the following criteria, continuing on
+	// ties. Precedence must be given to the the Rule with the largest number
+	// of:
 	//
-	// Each client request MUST map to a maximum of one route rule. If a request
-	// matches multiple rules, matching precedence MUST be determined in order
-	// of the following criteria, continuing on ties:
-	//
-	// * The longest matching hostname.
-	// * The longest matching non-wildcard hostname.
-	// * The longest matching path.
-	// * The largest number of header matches.
-	// * The largest number of query param matches.
+	// * Characters in a matching non-wildcard hostname.
+	// * Characters in a matching hostname.
+	// * Characters in a matching path.
+	// * Header matches.
+	// * Query param matches.
 	//
 	// If ties still exist across multiple Routes, matching precedence MUST be
 	// determined in order of the following criteria, continuing on ties:
 	//
-	// * The oldest Route based on creation timestamp. For example, a Route with
-	//   a creation timestamp of "2020-09-08 01:02:03" is given precedence over
-	//   a Route with a creation timestamp of "2020-09-08 01:02:04".
+	// * The oldest Route based on creation timestamp.
 	// * The Route appearing first in alphabetical order by
-	//   "<namespace>/<name>". For example, foo/bar is given precedence over
-	//   foo/baz.
+	//   "<namespace>/<name>".
 	//
 	// If ties still exist within the Route that has been given precedence,
 	// matching precedence MUST be granted to the first matching rule meeting
@@ -161,7 +160,7 @@ type HTTPRouteRule struct {
 	//
 	// +optional
 	// +kubebuilder:validation:MaxItems=8
-	// +kubebuilder:default={{path:{ type: "Prefix", value: "/"}}}
+	// +kubebuilder:default={{path:{ type: "PathPrefix", value: "/"}}}
 	Matches []HTTPRouteMatch `json:"matches,omitempty"`
 
 	// Filters define the filters that are applied to requests that match
@@ -177,7 +176,8 @@ type HTTPRouteRule struct {
 	// - Implementation-specific custom filters have no API guarantees across
 	//   implementations.
 	//
-	// Specifying a core filter multiple times has unspecified or custom conformance.
+	// Specifying a core filter multiple times has unspecified or custom
+	// conformance.
 	//
 	// Support: Core
 	//
@@ -189,7 +189,7 @@ type HTTPRouteRule struct {
 	// sent.
 
 	// If unspecified or invalid (refers to a non-existent resource or a Service
-	// with no endpoints), the rule performs no forwarding. If that are also no
+	// with no endpoints), the rule performs no forwarding. If there are also no
 	// filters specified that would result in a response being sent, a HTTP 503
 	// status code is returned. 503 responses must be sent so that the overall
 	// weight is respected; if an invalid backend is requested to have 80% of
@@ -209,43 +209,54 @@ type HTTPRouteRule struct {
 // Valid PathMatchType values are:
 //
 // * "Exact"
-// * "Prefix"
+// * "PathPrefix"
 // * "RegularExpression"
-// * "ImplementationSpecific"
 //
-// Prefix and Exact paths must be syntactically valid:
+// PathPrefix and Exact paths must be syntactically valid:
 //
-// - Must begin with the '/' character
-// - Must not contain consecutive '/' characters (e.g. /foo///, //).
-// - For prefix paths, a trailing '/' character in the Path is ignored,
-// e.g. /abc and /abc/ specify the same match.
+// - Must begin with the `/` character
+// - Must not contain consecutive `/` characters (e.g. `/foo///`, `//`).
 //
-// +kubebuilder:validation:Enum=Exact;Prefix;RegularExpression;ImplementationSpecific
+// +kubebuilder:validation:Enum=Exact;PathPrefix;RegularExpression
 type PathMatchType string
 
-// PathMatchType constants.
 const (
-	PathMatchExact                  PathMatchType = "Exact"
-	PathMatchPrefix                 PathMatchType = "Prefix"
-	PathMatchRegularExpression      PathMatchType = "RegularExpression"
-	PathMatchImplementationSpecific PathMatchType = "ImplementationSpecific"
+	// Matches the URL path exactly and with case sensitivity.
+	PathMatchExact PathMatchType = "Exact"
+
+	// Matches based on a URL path prefix split by `/`. Matching is
+	// case sensitive and done on a path element by element basis. A
+	// path element refers to the list of labels in the path split by
+	// the `/` separator. A request is a match for path _p_ if every
+	// _p_ is an element-wise prefix of the request path.
+	//
+	// For example, `/abc`, `/abc/` and `/abc/def` match the prefix
+	// `/abc`, but `/abcd` does not.
+	//
+	// "PathPrefix" is semantically equivalent to the "Prefix" path type in the
+	// Kubernetes Ingress API.
+	PathMatchPathPrefix PathMatchType = "PathPrefix"
+
+	// Matches if the URL path matches the given regular expression with
+	// case sensitivity.
+	//
+	// Since `"RegularExpression"` has custom conformance, implementations
+	// can support POSIX, PCRE, RE2 or any other regular expression dialect.
+	// Please read the implementation's documentation to determine the supported
+	// dialect.
+	PathMatchRegularExpression PathMatchType = "RegularExpression"
 )
 
 // HTTPPathMatch describes how to select a HTTP route by matching the HTTP request path.
 type HTTPPathMatch struct {
 	// Type specifies how to match against the path Value.
 	//
-	// Support: Core (Exact, Prefix)
+	// Support: Core (Exact, PathPrefix)
 	//
-	// Support: Custom (RegularExpression, ImplementationSpecific)
-	//
-	// Since RegularExpression PathType has custom conformance, implementations
-	// can support POSIX, PCRE or any other dialects of regular expressions.
-	// Please read the implementation's documentation to determine the supported
-	// dialect.
+	// Support: Custom (RegularExpression)
 	//
 	// +optional
-	// +kubebuilder:default=Prefix
+	// +kubebuilder:default=PathPrefix
 	Type *PathMatchType `json:"type,omitempty"`
 
 	// Value of the HTTP path to match against.
@@ -261,16 +272,14 @@ type HTTPPathMatch struct {
 //
 // * "Exact"
 // * "RegularExpression"
-// * "ImplementationSpecific"
 //
-// +kubebuilder:validation:Enum=Exact;RegularExpression;ImplementationSpecific
+// +kubebuilder:validation:Enum=Exact;RegularExpression
 type HeaderMatchType string
 
 // HeaderMatchType constants.
 const (
-	HeaderMatchExact                  HeaderMatchType = "Exact"
-	HeaderMatchRegularExpression      HeaderMatchType = "RegularExpression"
-	HeaderMatchImplementationSpecific HeaderMatchType = "ImplementationSpecific"
+	HeaderMatchExact             HeaderMatchType = "Exact"
+	HeaderMatchRegularExpression HeaderMatchType = "RegularExpression"
 )
 
 // HTTPHeaderName is the name of an HTTP header.
@@ -282,8 +291,8 @@ const (
 //
 // Invalid values include:
 //
-// * ":method" - ":" is an invalid character. This means that pseudo headers are
-//   not currently supported by this type.
+// * ":method" - ":" is an invalid character. This means that HTTP/2 pseudo
+//   headers are not currently supported by this type.
 // * "/invalid" - "/" is an invalid character
 //
 // +kubebuilder:validation:MinLength=1
@@ -298,12 +307,12 @@ type HTTPHeaderMatch struct {
 	//
 	// Support: Core (Exact)
 	//
-	// Support: Custom (RegularExpression, ImplementationSpecific)
+	// Support: Custom (RegularExpression)
 	//
-	// Since RegularExpression PathType has custom conformance, implementations
-	// can support POSIX, PCRE or any other dialects of regular expressions.
-	// Please read the implementation's documentation to determine the supported
-	// dialect.
+	// Since RegularExpression HeaderMatchType has custom conformance,
+	// implementations can support POSIX, PCRE or any other dialects of regular
+	// expressions. Please read the implementation's documentation to determine
+	// the supported dialect.
 	//
 	// +optional
 	// +kubebuilder:default=Exact
@@ -337,16 +346,14 @@ type HTTPHeaderMatch struct {
 //
 // * "Exact"
 // * "RegularExpression"
-// * "ImplementationSpecific"
 //
-// +kubebuilder:validation:Enum=Exact;RegularExpression;ImplementationSpecific
+// +kubebuilder:validation:Enum=Exact;RegularExpression
 type QueryParamMatchType string
 
 // QueryParamMatchType constants.
 const (
-	QueryParamMatchExact                  QueryParamMatchType = "Exact"
-	QueryParamMatchRegularExpression      QueryParamMatchType = "RegularExpression"
-	QueryParamMatchImplementationSpecific QueryParamMatchType = "ImplementationSpecific"
+	QueryParamMatchExact             QueryParamMatchType = "Exact"
+	QueryParamMatchRegularExpression QueryParamMatchType = "RegularExpression"
 )
 
 // HTTPQueryParamMatch describes how to select a HTTP route by matching HTTP
@@ -356,7 +363,7 @@ type HTTPQueryParamMatch struct {
 	//
 	// Support: Extended (Exact)
 	//
-	// Support: Custom (RegularExpression, ImplementationSpecific)
+	// Support: Custom (RegularExpression)
 	//
 	// Since RegularExpression QueryParamMatchType has custom conformance,
 	// implementations can support POSIX, PCRE or any other dialects of regular
@@ -407,22 +414,22 @@ const (
 // evaluate to true only if all conditions are satisfied.
 //
 // For example, the match below will match a HTTP request only if its path
-// starts with `/foo` AND it contains the `version: "1"` header:
+// starts with `/foo` AND it contains the `version: v1` header:
 //
 // ```
 // match:
 //   path:
 //     value: "/foo"
 //   headers:
-//     values:
-//       version: "1"
+//   - name: "version"
+//     value "v1"
 // ```
 type HTTPRouteMatch struct {
 	// Path specifies a HTTP request path matcher. If this field is not
 	// specified, a default prefix match on the "/" path is provided.
 	//
 	// +optional
-	// +kubebuilder:default={type: "Prefix", value: "/"}
+	// +kubebuilder:default={type: "PathPrefix", value: "/"}
 	Path *HTTPPathMatch `json:"path,omitempty"`
 
 	// Headers specifies HTTP request header matchers. Multiple match values are
@@ -453,29 +460,14 @@ type HTTPRouteMatch struct {
 	//
 	// +optional
 	Method *HTTPMethod `json:"method,omitempty"`
-
-	// ExtensionRef is an optional, implementation-specific extension to the
-	// "match" behavior. For example, resource "myroutematcher" in group
-	// "networking.example.net". If the referent cannot be found, the rule is
-	// not included in the route. The controller must ensure the "ResolvedRefs"
-	// condition on the Route status is set to `status: False`.
-	//
-	// Support: Custom
-	//
-	// +optional
-	ExtensionRef *LocalObjectReference `json:"extensionRef,omitempty"`
 }
 
-// HTTPRouteFilter defines additional processing steps that must be completed
-// during the request or response lifecycle. HTTPRouteFilters are meant as an
-// extension point to express additional processing that may be done in Gateway
-// implementations. Some examples include request or response modification,
-// implementing authentication strategies, rate-limiting, and traffic shaping.
-// API guarantee/conformance is defined based on the type of the filter.
-// TODO(hbagdi): re-render CRDs once controller-tools supports union tags:
-// - https://github.com/kubernetes-sigs/controller-tools/pull/298
-// - https://github.com/kubernetes-sigs/controller-tools/issues/461
-// +union
+// HTTPRouteFilter defines processing steps that must be completed during the
+// request or response lifecycle. HTTPRouteFilters are meant as an extension
+// point to express processing that may be done in Gateway implementations. Some
+// examples include request or response modification, implementing
+// authentication strategies, rate-limiting, and traffic shaping. API
+// guarantee/conformance is defined based on the type of the filter.
 type HTTPRouteFilter struct {
 	// Type identifies the type of filter to apply. As with other API fields,
 	// types are classified into three conformance levels:
@@ -498,6 +490,10 @@ type HTTPRouteFilter struct {
 	// Implementers are encouraged to define custom implementation types to
 	// extend the core API with implementation-specific behavior.
 	//
+	// If a reference to a custom filter type cannot be resolved, the filter
+	// MUST NOT be skipped. Instead, requests that would have been processed by
+	// that filter MUST receive a HTTP error response.
+	//
 	// +unionDiscriminator
 	Type HTTPRouteFilterType `json:"type"`
 
@@ -510,6 +506,8 @@ type HTTPRouteFilter struct {
 	RequestHeaderModifier *HTTPRequestHeaderFilter `json:"requestHeaderModifier,omitempty"`
 
 	// RequestMirror defines a schema for a filter that mirrors requests.
+	// Requests are sent to the specified destination, but responses from
+	// that destination are ignored.
 	//
 	// Support: Extended
 	//
@@ -522,7 +520,7 @@ type HTTPRouteFilter struct {
 	// Support: Core
 	//
 	// +optional
-	RequestRedirect *HTTPRequestRedirect `json:"requestRedirect,omitempty"`
+	RequestRedirect *HTTPRequestRedirectFilter `json:"requestRedirect,omitempty"`
 
 	// ExtensionRef is an optional, implementation-specific extension to the
 	// "filter" behavior.  For example, resource "myroutefilter" in group
@@ -580,9 +578,9 @@ type HTTPHeader struct {
 	// Name is the name of the HTTP Header to be matched. Name matching MUST be
 	// case insensitive. (See https://tools.ietf.org/html/rfc7230#section-3.2).
 	//
-	// If multiple entries specify equivalent header names, only the first entry
-	// with an equivalent name MUST be considered for a match. Subsequent
-	// entries with an equivalent header name MUST be ignored. Due to the
+	// If multiple entries specify equivalent header names, the first entry with
+	// an equivalent name MUST be considered for a match. Subsequent entries
+	// with an equivalent header name MUST be ignored. Due to the
 	// case-insensitivity of header names, "foo" and "Foo" are considered
 	// equivalent.
 	Name HTTPHeaderName `json:"name"`
@@ -605,7 +603,9 @@ type HTTPRequestHeaderFilter struct {
 	//   my-header: foo
 	//
 	// Config:
-	//   set: {"my-header": "bar"}
+	//   set:
+	//   - name: "my-header"
+	//     value: "bar"
 	//
 	// Output:
 	//   GET /foo HTTP/1.1
@@ -626,7 +626,9 @@ type HTTPRequestHeaderFilter struct {
 	//   my-header: foo
 	//
 	// Config:
-	//   add: {"my-header": "bar"}
+	//   add:
+	//   - name: "my-header"
+	//     value: "bar"
 	//
 	// Output:
 	//   GET /foo HTTP/1.1
@@ -662,17 +664,17 @@ type HTTPRequestHeaderFilter struct {
 	Remove []string `json:"remove,omitempty"`
 }
 
-// HTTPRequestRedirect defines configuration for the RequestRedirect filter.
-type HTTPRequestRedirect struct {
-	// Protocol is the protocol to be used in the value of the `Location`
+// HTTPRequestRedirectFilter defines configuration for the RequestRedirect filter.
+type HTTPRequestRedirectFilter struct {
+	// Scheme is the scheme to be used in the value of the `Location`
 	// header in the response.
-	// When empty, the protocol of the request is used.
+	// When empty, the scheme of the request is used.
 	//
 	// Support: Extended
 	//
 	// +optional
-	// +kubebuilder:validation:Enum=HTTP;HTTPS
-	Protocol *string `json:"protocol,omitempty"`
+	// +kubebuilder:validation:Enum=http;https
+	Scheme *string `json:"scheme,omitempty"`
 
 	// Hostname is the hostname to be used in the value of the `Location`
 	// header in the response.
@@ -722,9 +724,7 @@ type HTTPRequestMirrorFilter struct {
 	//
 	// Support: Extended for Kubernetes Service
 	// Support: Custom for any other resource
-	//
-	// +optional
-	BackendRef *BackendObjectReference `json:"backendRef,omitempty"`
+	BackendRef BackendObjectReference `json:"backendRef"`
 }
 
 // HTTPBackendRef defines how a HTTPRoute should forward an HTTP request.

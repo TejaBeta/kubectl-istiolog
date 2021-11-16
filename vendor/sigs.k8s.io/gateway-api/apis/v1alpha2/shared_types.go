@@ -24,6 +24,13 @@ import (
 // a parent of this resource (usually a route). The only kind of parent resource
 // with "Core" support is Gateway. This API may be extended in the future to
 // support additional kinds of parent resources, such as HTTPRoute.
+//
+// The API object must be valid in the cluster; the Group and Kind must
+// be registered in the cluster for this reference to be valid.
+//
+// References to objects with invalid Group and Kind are not valid, and must
+// be rejected by the implementation, with appropriate Conditions set
+// on the containing object.
 type ParentRef struct {
 	// Group is the group of the referent.
 	//
@@ -43,34 +50,17 @@ type ParentRef struct {
 	Kind *Kind `json:"kind,omitempty"`
 
 	// Namespace is the namespace of the referent. When unspecified (or empty
-	// string), this will either be:
-	//
-	// * local namespace of the route when scope is set to Namespace.
-	// * no namespace when scope is set to Cluster.
+	// string), this refers to the local namespace of the Route.
 	//
 	// Support: Core
 	//
 	// +optional
 	Namespace *Namespace `json:"namespace,omitempty"`
 
-	// Scope represents if this refers to a cluster or namespace scoped
-	// resource. This may be set to "Cluster" or "Namespace".
-	//
-	// Support: Core (Namespace)
-	// Support: Custom (Cluster)
-	//
-	// +kubebuilder:validation:Enum=Cluster;Namespace
-	// +kubebuilder:default=Namespace
-	// +optional
-	Scope *string `json:"scope,omitempty"`
-
 	// Name is the name of the referent.
 	//
 	// Support: Core
-	//
-	// +kubebuilder:validation:MinLength=1
-	// +kubebuilder:validation:MaxLength=253
-	Name string `json:"name"`
+	Name ObjectName `json:"name"`
 
 	// SectionName is the name of a section within the target resource. In the
 	// following resources, SectionName is interpreted as the following:
@@ -96,7 +86,7 @@ type ParentRef struct {
 	SectionName *SectionName `json:"sectionName,omitempty"`
 }
 
-// CommonRouteSpec defines the common attributes that all Routes should include
+// CommonRouteSpec defines the common attributes that all Routes MUST include
 // within their spec.
 type CommonRouteSpec struct {
 	// ParentRefs references the resources (usually Gateways) that a Route wants
@@ -166,9 +156,9 @@ type BackendRef struct {
 type RouteConditionType string
 
 const (
-	// This condition indicates whether the route has been admitted or rejected
+	// This condition indicates whether the route has been accepted or rejected
 	// by a Gateway, and why.
-	ConditionRouteAdmitted RouteConditionType = "Admitted"
+	ConditionRouteAccepted RouteConditionType = "Accepted"
 
 	// This condition indicates whether the controller was able to resolve all
 	// the object references for the Route.
@@ -182,16 +172,16 @@ type RouteParentStatus struct {
 	// RouteParentStatus struct describes the status of.
 	ParentRef ParentRef `json:"parentRef"`
 
-	// Controller is a domain/path string that indicates the controller that
-	// wrote this status. This corresponds with the controller field on
-	// GatewayClass.
+	// ControllerName is a domain/path string that indicates the name of the
+	// controller that wrote this status. This corresponds with the
+	// controllerName field on GatewayClass.
 	//
 	// Example: "example.net/gateway-controller".
 	//
 	// The format of this field is DOMAIN "/" PATH, where DOMAIN and PATH are
 	// valid Kubernetes names
 	// (https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names).
-	Controller GatewayController `json:"controller"`
+	ControllerName GatewayController `json:"controllerName"`
 
 	// Conditions describes the status of the route with respect to the Gateway.
 	// Note that the route's availability is also subject to the Gateway's own
@@ -199,14 +189,14 @@ type RouteParentStatus struct {
 	//
 	// If the Route's ParentRef specifies an existing Gateway that supports
 	// Routes of this kind AND that Gateway's controller has sufficient access,
-	// then that Gateway's controller MUST set the "Admitted" condition on the
-	// Route, to indicate whether the route has been admitted or rejected by the
+	// then that Gateway's controller MUST set the "Accepted" condition on the
+	// Route, to indicate whether the route has been accepted or rejected by the
 	// Gateway, and why.
 	//
-	// A Route MUST be considered "Admitted" if at least one of the Route's
+	// A Route MUST be considered "Accepted" if at least one of the Route's
 	// rules is implemented by the Gateway.
 	//
-	// There are a number of cases where the "Admitted" condition may not be set
+	// There are a number of cases where the "Accepted" condition may not be set
 	// due to lack of controller visibility, that includes when:
 	//
 	// * The Route refers to a non-existent parent.
@@ -220,8 +210,8 @@ type RouteParentStatus struct {
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
 }
 
-// RouteStatus defines the observed state that is required across
-// all route types.
+// RouteStatus defines the common attributes that all Routes MUST include within
+// their status.
 type RouteStatus struct {
 	// Parents is a list of parent resources (usually Gateways) that are
 	// associated with the route, and the status of the route with respect to
@@ -230,6 +220,11 @@ type RouteStatus struct {
 	// first sees the route and should update the entry as appropriate when the
 	// route or gateway is modified.
 	//
+	// Note that parent references that cannot be resolved by an implementation
+	// of this API will not be added to this list. Implementations of this API
+	// can only populate Route status for the Gateways/parent resources they are
+	// responsible for.
+	//
 	// A maximum of 32 Gateways will be represented in this list. An empty list
 	// means the route has not been attached to any Gateway.
 	//
@@ -237,12 +232,12 @@ type RouteStatus struct {
 	Parents []RouteParentStatus `json:"parents"`
 }
 
-// Hostname is the fully qualified domain name of a network host, as defined
-// by RFC 3986. Note the following deviations from the "host" part of the
-// URI as defined in the RFC:
+// Hostname is the fully qualified domain name of a network host. This matches
+// the RFC 1123 definition of a hostname with 2 notable exceptions:
 //
-// 1. IP literals are not allowed.
-// 2. The `:` delimiter is not respected because ports are not allowed.
+// 1. IPs are not allowed.
+// 2. A hostname may be prefixed with a wildcard label (`*.`). The wildcard
+//    label must appear by itself as the first label.
 //
 // Hostname can be "precise" which is a domain name without the terminating
 // dot of a network host (e.g. "foo.example.com") or "wildcard", which is a
@@ -293,6 +288,14 @@ type Group string
 // +kubebuilder:validation:Pattern=`^[a-zA-Z]([-a-zA-Z0-9]*[a-zA-Z0-9])?$`
 type Kind string
 
+// ObjectName refers to the name of a Kubernetes object.
+// Object names can have a variety of forms, including RFC1123 subdomains,
+// RFC 1123 labels, or RFC 1035 labels.
+//
+// +kubebuilder:validation:MinLength=1
+// +kubebuilder:validation:MaxLength=253
+type ObjectName string
+
 // Namespace refers to a Kubernetes namespace. It must be a RFC 1123 label.
 //
 // This validation is based off of the corresponding Kubernetes validation:
@@ -314,8 +317,7 @@ type Kind string
 // +kubebuilder:validation:MaxLength=63
 type Namespace string
 
-// SectionName is the name of a section in a Kubernetes resource. It must be a
-// RFC 1123 subdomain.
+// SectionName is the name of a section in a Kubernetes resource.
 //
 // This validation is based off of the corresponding Kubernetes validation:
 // https://github.com/kubernetes/apimachinery/blob/02cfb53916346d085a6c6c7c66f882e3c6b0eca6/pkg/util/validation/validation.go#L208
@@ -350,3 +352,34 @@ type SectionName string
 // +kubebuilder:validation:MaxLength=253
 // +kubebuilder:validation:Pattern=`^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*\/[A-Za-z0-9\/\-._~%!$&'()*+,;=:]+$`
 type GatewayController string
+
+// AnnotationKey is the key of an annotation in Gateway API. This is used for
+// validation of maps such as TLS options. This matches the Kubernetes
+// "qualified name" validation that is used for annotations and other common
+// values.
+//
+// Valid values include:
+//
+// * example
+// * example.com
+// * example.com/path
+// * example.com/path.html
+//
+// Invalid values include:
+//
+// * example~ - "~" is an invalid character
+// * example.com. - can not start or end with "."
+//
+// +kubebuilder:validation:MinLength=1
+// +kubebuilder:validation:MaxLength=253
+// +kubebuilder:validation:Pattern=`^(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9]/?)*$`
+type AnnotationKey string
+
+// AnnotationValue is the value of an annotation in Gateway API. This is used
+// for validation of maps such as TLS options. This roughly matches Kubernetes
+// annotation validation, although the length validation in that case is based
+// on the entire size of the annotations struct.
+//
+// +kubebuilder:validation:MinLength=0
+// +kubebuilder:validation:MaxLength=4096
+type AnnotationValue string

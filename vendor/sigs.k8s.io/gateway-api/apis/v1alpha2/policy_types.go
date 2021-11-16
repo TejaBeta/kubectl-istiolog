@@ -29,10 +29,7 @@ type PolicyTargetReference struct {
 	Kind Kind `json:"kind"`
 
 	// Name is the name of the target resource.
-	//
-	// +kubebuilder:validation:MinLength=1
-	// +kubebuilder:validation:MaxLength=253
-	Name string `json:"name"`
+	Name ObjectName `json:"name"`
 
 	// Namespace is the namespace of the referent. When unspecified, the local
 	// namespace is inferred. Even when policy targets a resource in a different
@@ -41,12 +38,4 @@ type PolicyTargetReference struct {
 	//
 	// +optional
 	Namespace *Namespace `json:"namespace,omitempty"`
-
-	// ClassName is the name of the class this policy should apply to. When
-	// unspecified, the policy will apply to all classes that support it.
-	//
-	// +kubebuilder:validation:MinLength=1
-	// +kubebuilder:validation:MaxLength=253
-	// +optional
-	ClassName *string `json:"className,omitempty"`
 }

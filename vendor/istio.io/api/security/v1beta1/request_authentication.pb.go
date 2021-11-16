@@ -153,6 +153,73 @@ const _ = proto.GoGoProtoPackageIsVersion3 // please upgrade the proto package
 //         paths: ["/healthz"]
 // ```
 //
+// [Experimental] Routing based on derived [metadata](https://istio.io/latest/docs/reference/config/security/conditions/)
+// is now supported. A prefix '@' is used to denote a match against internal metadata instead of the headers in the request.
+// Currently this feature is only supported for the following metadata:
+//
+// - `request.auth.claims.{claim-name}[.{sub-claim}]*` which are extracted from validated JWT tokens. The claim name
+// currently does not support the `.` character. Examples: `request.auth.claims.sub` and `request.auth.claims.name.givenName`.
+//
+// The use of matches against JWT claim metadata is only supported in Gateways. The following example shows:
+//
+// - RequestAuthentication to decode and validate a JWT. This also makes the `@request.auth.claims` available for use in the VirtualService.
+// - AuthorizationPolicy to check for valid principals in the request. This makes the JWT required for the request.
+// - VirtualService to route the request based on the "sub" claim.
+//
+// ```yaml
+// apiVersion: security.istio.io/v1beta1
+// kind: RequestAuthentication
+// metadata:
+//   name: jwt-on-ingress
+//   namespace: istio-system
+// spec:
+//  selector:
+//    matchLabels:
+//      app: istio-ingressgateway
+//   jwtRules:
+//   - issuer: "example.com"
+//     jwksUri: https://example.com/.well-known/jwks.json
+// ---
+// apiVersion: security.istio.io/v1beta1
+// kind: AuthorizationPolicy
+// metadata:
+//   name: require-jwt
+//   namespace: istio-system
+// spec:
+//  selector:
+//    matchLabels:
+//      app: istio-ingressgateway
+//   rules:
+//   - from:
+//     - source:
+//         requestPrincipals: ["*"]
+// ---
+// apiVersion: networking.istio.io/v1alpha3
+// kind: VirtualService
+// metadata:
+//   name: route-jwt
+// spec:
+//   hosts:
+//   - foo.prod.svc.cluster.local
+//   gateways:
+//   - istio-ingressgateway
+//   http:
+//   - name: "v2"
+//     match:
+//     - headers:
+//         "@request.auth.claims.sub":
+//           exact: "dev"
+//     route:
+//     - destination:
+//         host: foo.prod.svc.cluster.local
+//         subset: v2
+//   - name: "default"
+//     route:
+//     - destination:
+//         host: foo.prod.svc.cluster.local
+//         subset: v1
+// ```
+//
 // <!-- crd generation tags
 // +cue-gen:RequestAuthentication:groupName:security.istio.io
 // +cue-gen:RequestAuthentication:version:v1beta1
