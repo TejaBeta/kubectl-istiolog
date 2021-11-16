@@ -86,7 +86,7 @@ type ReferencePolicySpec struct {
 // ReferencePolicyFrom describes trusted namespaces and kinds.
 type ReferencePolicyFrom struct {
 	// Group is the group of the referent.
-	// When empty, the "core" API group is inferred.
+	// When empty, the Kubernetes core API group is inferred.
 	//
 	// Support: Core
 	Group Group `json:"group"`
@@ -111,7 +111,7 @@ type ReferencePolicyFrom struct {
 // references.
 type ReferencePolicyTo struct {
 	// Group is the group of the referent.
-	// When empty, the "core" API group is inferred.
+	// When empty, the Kubernetes core API group is inferred.
 	//
 	// Support: Core
 	Group Group `json:"group"`
@@ -122,4 +122,11 @@ type ReferencePolicyTo struct {
 	//
 	// * Service
 	Kind Kind `json:"kind"`
+
+	// Name is the name of the referent. When unspecified or empty, this policy
+	// refers to all resources of the specified Group and Kind in the local
+	// namespace.
+	//
+	// +optional
+	Name *ObjectName `json:"name,omitempty"`
 }

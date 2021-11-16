@@ -21,7 +21,7 @@ import "type/v1beta1/selector.proto";
 // $schema: istio.extensions.v1alpha1.WasmPlugin
 // $title: Wasm Plugin
 // $description: Extend the functionality provided by the Istio proxy through WebAssembly filters.
-// $location: https://istio.io/docs/reference/config/extensions/wasm-plugin.html
+// $location: https://istio.io/docs/reference/config/proxy_extensions/wasm-plugin.html
 // $aliases: [/docs/reference/config/extensions/v1alpha1/wasm-plugin]
 //
 // WasmPlugins provides a mechanism to extend the functionality provided by
@@ -202,7 +202,7 @@ message WasmPlugin {
   // notation), it must match the value of this field. If an OCI image is
   // referenced by tag and this field is set, its checksum will be verified
   // against the contents of this field after pulling.
-  optional string sha256 = 3;
+  string sha256 = 3;
 
   // The pull behaviour to be applied when fetching an OCI image. Only
   // relevant when images are referenced by tag instead of SHA. Defaults
