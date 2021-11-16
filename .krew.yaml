@@ -19,29 +19,29 @@ spec:
       matchLabels:
         os: darwin
         arch: amd64
-    {{addURIAndSha "https://github.com/TejaBeta/kubectl-istiolog/releases/download/v{{ .Version }}/kubectl-istiolog_{{ .Version }}_Darwin_x86_64.tar.gz" .Version }}
+    {{addURIAndSha "https://github.com/TejaBeta/kubectl-istiolog/releases/download/v{{ .RawVersion }}/kubectl-istiolog_{{ .RawVersion }}_Darwin_x86_64.tar.gz" .RawVersion }}
     bin: kubectl-istiolog
   - selector:
       matchLabels:
         os: darwin
         arch: arm64
-    {{addURIAndSha "https://github.com/TejaBeta/kubectl-istiolog/releases/download/v{{ .Version }}/kubectl-istiolog_{{ .Version }}_Darwin_arm64.tar.gz" .Version }}
+    {{addURIAndSha "https://github.com/TejaBeta/kubectl-istiolog/releases/download/v{{ .RawVersion }}/kubectl-istiolog_{{ .RawVersion }}_Darwin_arm64.tar.gz" .RawVersion }}
     bin: kubectl-istiolog
   - selector:
       matchLabels:
         os: linux
         arch: amd64
-    {{addURIAndSha "https://github.com/TejaBeta/kubectl-istiolog/releases/download/v{{ .Version }}/kubectl-istiolog_{{ .Version }}_Linux_x86_64.tar.gz" .Version }}
+    {{addURIAndSha "https://github.com/TejaBeta/kubectl-istiolog/releases/download/v{{ .RawVersion }}/kubectl-istiolog_{{ .RawVersion }}_Linux_x86_64.tar.gz" .RawVersion }}
     bin: kubectl-istiolog
   - selector:
       matchLabels:
         os: linux
         arch: arm64
-    {{addURIAndSha "https://github.com/TejaBeta/kubectl-istiolog/releases/download/v{{ .Version }}/kubectl-istiolog_{{ .Version }}_Linux_arm64.tar.gz" .Version }}
+    {{addURIAndSha "https://github.com/TejaBeta/kubectl-istiolog/releases/download/v{{ .RawVersion }}/kubectl-istiolog_{{ .RawVersion }}_Linux_arm64.tar.gz" .RawVersion }}
     bin: kubectl-istiolog
   - selector:
       matchLabels:
         os: windows
         arch: amd64
-    {{addURIAndSha "https://github.com/TejaBeta/kubectl-istiolog/releases/download/v{{ .Version }}/kubectl-istiolog_{{ .Version }}_windows_x86_64.tar.gz" .Version }}
+    {{addURIAndSha "https://github.com/TejaBeta/kubectl-istiolog/releases/download/v{{ .RawVersion }}/kubectl-istiolog_{{ .RawVersion }}_windows_x86_64.tar.gz" .RawVersion }}
     bin: kubectl-istiolog.exe
