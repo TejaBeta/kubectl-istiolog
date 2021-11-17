@@ -170,7 +170,7 @@ go.opencensus.io/trace
 go.opencensus.io/trace/internal
 go.opencensus.io/trace/propagation
 go.opencensus.io/trace/tracestate
-# go.starlark.net v0.0.0-20200306205701-8dd3e2ee1dd5
+# go.starlark.net v0.0.0-20211013185944-b0039bd2cfe3
 go.starlark.net/internal/compile
 go.starlark.net/internal/spell
 go.starlark.net/resolve
@@ -211,7 +211,7 @@ golang.org/x/oauth2/jws
 golang.org/x/oauth2/jwt
 # golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
 golang.org/x/sync/semaphore
-# golang.org/x/sys v0.0.0-20211020174200-9d6173849985
+# golang.org/x/sys v0.0.0-20211109184856-51b60fd695b3
 golang.org/x/sys/internal/unsafeheader
 golang.org/x/sys/plan9
 golang.org/x/sys/unix
@@ -416,11 +416,16 @@ istio.io/client-go/pkg/listers/security/v1beta1
 istio.io/client-go/pkg/listers/telemetry/v1alpha1
 # istio.io/gogo-genproto v0.0.0-20211111171331-7926fce33bb3
 istio.io/gogo-genproto/googleapis/google/api
-# istio.io/istio v0.0.0-20211116175227-fcfbad7ff2b1
+# istio.io/istio v0.0.0-20211117185323-182adf612c9c
 ## explicit
+istio.io/istio/pilot/pkg/features
+istio.io/istio/pkg/config/constants
+istio.io/istio/pkg/jwt
 istio.io/istio/pkg/kube
+istio.io/istio/pkg/kube/mcs
 istio.io/istio/pkg/queue
 # istio.io/pkg v0.0.0-20211112173506-bca79fa408e9
+istio.io/pkg/env
 istio.io/pkg/log
 istio.io/pkg/structured
 istio.io/pkg/version
@@ -961,10 +966,8 @@ sigs.k8s.io/kustomize/kyaml/yaml/walk
 # sigs.k8s.io/mcs-api v0.1.0
 sigs.k8s.io/mcs-api/pkg/apis/v1alpha1
 sigs.k8s.io/mcs-api/pkg/client/clientset/versioned
-sigs.k8s.io/mcs-api/pkg/client/clientset/versioned/fake
 sigs.k8s.io/mcs-api/pkg/client/clientset/versioned/scheme
 sigs.k8s.io/mcs-api/pkg/client/clientset/versioned/typed/apis/v1alpha1
-sigs.k8s.io/mcs-api/pkg/client/clientset/versioned/typed/apis/v1alpha1/fake
 sigs.k8s.io/mcs-api/pkg/client/informers/externalversions
 sigs.k8s.io/mcs-api/pkg/client/informers/externalversions/apis
 sigs.k8s.io/mcs-api/pkg/client/informers/externalversions/apis/v1alpha1
