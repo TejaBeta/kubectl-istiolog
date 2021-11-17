@@ -416,7 +416,7 @@ istio.io/client-go/pkg/listers/security/v1beta1
 istio.io/client-go/pkg/listers/telemetry/v1alpha1
 # istio.io/gogo-genproto v0.0.0-20211111171331-7926fce33bb3
 istio.io/gogo-genproto/googleapis/google/api
-# istio.io/istio v0.0.0-20211117185323-182adf612c9c
+# istio.io/istio v0.0.0-20211117232020-6d9c69f10431
 ## explicit
 istio.io/istio/pilot/pkg/features
 istio.io/istio/pkg/config/constants
