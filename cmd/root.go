@@ -23,7 +23,6 @@ import (
 )
 
 var (
-	flagVersion   bool
 	flagVerbose   bool
 	flagNameSpace string
 	flagFollow    bool
