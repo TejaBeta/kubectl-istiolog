@@ -68,7 +68,6 @@ func init() {
 		}
 	})
 	rootCmd.Flags().BoolVar(&flagVerbose, "verbose", false, "Verbose mode on")
-	rootCmd.Flags().BoolVarP(&flagVersion, "version", "v", false, "Get version info")
 	rootCmd.Flags().StringVarP(&flagNameSpace, "namespace", "n", "default", "Namespace in current context")
 	rootCmd.Flags().BoolVarP(&flagFollow, "follow", "f", false, "Specify if the logs should be streamed")
 	rootCmd.Flags().StringVarP(&flagLogLevel, "level", "l", "warning", "Comma-separated minimum per-logger level of messages to output")
