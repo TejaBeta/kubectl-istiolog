@@ -30,7 +30,7 @@ func init() {
 
 var versionCmd = &cobra.Command{
 	Use:   "version",
-	Short: "print current kubectl-istiolog version",
+	Short: "prints current kubectl-istiolog version",
 	Long:  ``,
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println("version: ", version)

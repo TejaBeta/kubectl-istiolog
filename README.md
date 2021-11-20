@@ -50,7 +50,6 @@ Flags:
   -l, --level string       Comma-separated minimum per-logger level of messages to output (default "warning")
   -n, --namespace string   Namespace in current context (default "default")
       --verbose            Verbose mode on
-  -v, --version            Get version info
 
 Use "kubectl-istiolog [command] --help" for more information about a command.
 ```
