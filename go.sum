@@ -1945,6 +1945,8 @@ k8s.io/apimachinery v0.22.2 h1:ejz6y/zNma8clPVfNDLnPbleBo6MpoFy/HBiBqCouVk=
 k8s.io/apimachinery v0.22.2/go.mod h1:O3oNtNadZdeOMxHFVxOreoznohCpy0z6mocxbZr7oJ0=
 k8s.io/apimachinery v0.22.3 h1:mrvBG5CZnEfwgpVqWcrRKvdsYECTrhAR6cApAgdsflk=
 k8s.io/apimachinery v0.22.3/go.mod h1:O3oNtNadZdeOMxHFVxOreoznohCpy0z6mocxbZr7oJ0=
+k8s.io/apimachinery v0.22.4 h1:9uwcvPpukBw/Ri0EUmWz+49cnFtaoiyEhQTK+xOe7Ck=
+k8s.io/apimachinery v0.22.4/go.mod h1:yU6oA6Gnax9RrxGzVvPFFJ+mpnW6PBSqp0sx0I0HHW0=
 k8s.io/apiserver v0.18.2/go.mod h1:Xbh066NqrZO8cbsoenCwyDJ1OSi8Ag8I2lezeHxzwzw=
 k8s.io/apiserver v0.18.4/go.mod h1:q+zoFct5ABNnYkGIaGQ3bcbUNdmPyOCoEBcg51LChY8=
 k8s.io/apiserver v0.20.1/go.mod h1:ro5QHeQkgMS7ZGpvf4tSMx6bBOgPfE+f52KwvXfScaU=
@@ -2018,6 +2020,8 @@ k8s.io/kube-openapi v0.0.0-20210915024840-94424faaec1f h1:64FBs/eZBrISUF1/jgFNCl
 k8s.io/kube-openapi v0.0.0-20210915024840-94424faaec1f/go.mod h1:gULf0pSS32YtLlO7+li/EV8/0y5mG/sO32H4OUsHIQg=
 k8s.io/kube-openapi v0.0.0-20211020163157-7327e2aaee2b h1:RQzI0hL8LPCNd9eAZvuG8orAUrxXFiVqBKSU8fs6ygc=
 k8s.io/kube-openapi v0.0.0-20211020163157-7327e2aaee2b/go.mod h1:gULf0pSS32YtLlO7+li/EV8/0y5mG/sO32H4OUsHIQg=
+k8s.io/kube-openapi v0.0.0-20211109043538-20434351676c h1:jvamsI1tn9V0S8jicyX82qaFC0H/NKxv2e5mbqsgR80=
+k8s.io/kube-openapi v0.0.0-20211109043538-20434351676c/go.mod h1:vHXdDvt9+2spS2Rx9ql3I8tycm3H9FDfdUoIuKCefvw=
 k8s.io/kubectl v0.22.1/go.mod h1:mjAOgEbMNMtZWxnfM6jd+nPjPsaoLqO5xanc78WcSbw=
 k8s.io/kubectl v0.22.2 h1:KMyYNZoBshaL3XKx04X07DtpoD4vMrdkfiN/G2Qx/PU=
 k8s.io/kubectl v0.22.2/go.mod h1:BApg2j0edxLArCOfO0ievI27EeTQqBDMNU9VQH734iQ=
