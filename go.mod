@@ -8,5 +8,5 @@ require (
 	istio.io/istio v0.0.0-20211122210124-c568a5d8ef48
 	k8s.io/api v0.22.4
 	k8s.io/apimachinery v0.22.4
-	k8s.io/client-go v0.22.3
+	k8s.io/client-go v0.22.4
 )
