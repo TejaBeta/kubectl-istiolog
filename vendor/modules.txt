@@ -476,7 +476,7 @@ gopkg.in/inf.v0
 gopkg.in/yaml.v2
 # gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b
 gopkg.in/yaml.v3
-# istio.io/api v0.0.0-20211130000055-e9d1de18c118
+# istio.io/api v0.0.0-20211204004752-d453d41024ba
 istio.io/api/analysis/v1alpha1
 istio.io/api/extensions/v1alpha1
 istio.io/api/label
@@ -486,7 +486,7 @@ istio.io/api/networking/v1beta1
 istio.io/api/security/v1beta1
 istio.io/api/telemetry/v1alpha1
 istio.io/api/type/v1beta1
-# istio.io/client-go v1.12.0-alpha.5.0.20211124144007-2c98ed70c967
+# istio.io/client-go v1.12.0-alpha.5.0.20211204005637-389437ec13ee
 istio.io/client-go/pkg/apis/extensions/v1alpha1
 istio.io/client-go/pkg/apis/networking/v1alpha3
 istio.io/client-go/pkg/apis/networking/v1beta1
@@ -523,7 +523,7 @@ istio.io/client-go/pkg/listers/security/v1beta1
 istio.io/client-go/pkg/listers/telemetry/v1alpha1
 # istio.io/gogo-genproto v0.0.0-20211111171331-7926fce33bb3
 istio.io/gogo-genproto/googleapis/google/api
-# istio.io/istio v0.0.0-20211203111922-c1e0787b0c1b
+# istio.io/istio v0.0.0-20211204040849-8835b8da622a
 ## explicit
 istio.io/istio/pilot/pkg/features
 istio.io/istio/pilot/pkg/util/sets
