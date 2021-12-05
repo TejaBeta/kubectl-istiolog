@@ -46,7 +46,7 @@ var rootCmd = &cobra.Command{
 		}
 		err = options.KubectlIstioLog(args[0], flagLogLevel, flagFollow)
 		if err != nil {
-			panic(err)
+			fmt.Println(err.Error())
 		}
 	},
 }
