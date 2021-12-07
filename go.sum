@@ -1987,6 +1987,8 @@ istio.io/istio v0.0.0-20211203111922-c1e0787b0c1b h1:0VHND7gORedJJXUsfmCqV4SvANr
 istio.io/istio v0.0.0-20211203111922-c1e0787b0c1b/go.mod h1:E2IdtwX7lP1fgbk8V7kwdhHtFl7rz4ie1joICHvdlKY=
 istio.io/istio v0.0.0-20211204040849-8835b8da622a h1:PJWiiKDtP2KcuzkrnrbIBPiDQJK8sup9ivRYprOHaeo=
 istio.io/istio v0.0.0-20211204040849-8835b8da622a/go.mod h1:Jjvk8+7ocDxPUMp7PZN5guRYPFBoHWtLHTxLV9Du+B0=
+istio.io/istio v0.0.0-20211207200644-b1737ef9ef85 h1:7S3GlQYMIBM5na7VdH2danLDAnhhJZtTIeVaRkOgsuU=
+istio.io/istio v0.0.0-20211207200644-b1737ef9ef85/go.mod h1:Jjvk8+7ocDxPUMp7PZN5guRYPFBoHWtLHTxLV9Du+B0=
 istio.io/pkg v0.0.0-20210914184925-da9399ebffe5 h1:a9BTDf4yGOeMo9KKYETOUrNhUF4vclYl4WtJFqx1xGc=
 istio.io/pkg v0.0.0-20210914184925-da9399ebffe5/go.mod h1:rJLxqU2GEnFR3cIiun1uoiG87ghuQSD8jFkcjyT3Qes=
 istio.io/pkg v0.0.0-20211112173506-bca79fa408e9 h1:+5roGviidNaGj5gXmWIZIlwXn+dJadBeTMWkYdMvSrA=
@@ -2155,6 +2157,7 @@ sigs.k8s.io/controller-runtime v0.6.1/go.mod h1:XRYBPdbf5XJu9kpS84VJiZ7h/u1hF3gE
 sigs.k8s.io/controller-runtime v0.9.6/go.mod h1:q6PpkM5vqQubEKUKOM6qr06oXGzOBcCby1DA9FbyZeA=
 sigs.k8s.io/controller-runtime v0.10.1/go.mod h1:CQp8eyUQZ/Q7PJvnIrB6/hgfTC1kBkGylwsLgOQi1WY=
 sigs.k8s.io/controller-runtime v0.10.2/go.mod h1:CQp8eyUQZ/Q7PJvnIrB6/hgfTC1kBkGylwsLgOQi1WY=
+sigs.k8s.io/controller-runtime v0.10.3 h1:s5Ttmw/B4AuIbwrXD3sfBkXwnPMMWrqpVj4WRt1dano=
 sigs.k8s.io/controller-runtime v0.10.3/go.mod h1:CQp8eyUQZ/Q7PJvnIrB6/hgfTC1kBkGylwsLgOQi1WY=
 sigs.k8s.io/controller-tools v0.3.0/go.mod h1:enhtKGfxZD1GFEoMgP8Fdbu+uKQ/cq1/WGJhdVChfvI=
 sigs.k8s.io/controller-tools v0.6.2/go.mod h1:oaeGpjXn6+ZSEIQkUe/+3I40PNiDYp9aeawbt3xTgJ8=
