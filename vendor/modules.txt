@@ -483,6 +483,7 @@ istio.io/api/label
 istio.io/api/meta/v1alpha1
 istio.io/api/networking/v1alpha3
 istio.io/api/networking/v1beta1
+istio.io/api/operator/v1alpha1
 istio.io/api/security/v1beta1
 istio.io/api/telemetry/v1alpha1
 istio.io/api/type/v1beta1
@@ -523,8 +524,10 @@ istio.io/client-go/pkg/listers/security/v1beta1
 istio.io/client-go/pkg/listers/telemetry/v1alpha1
 # istio.io/gogo-genproto v0.0.0-20211111171331-7926fce33bb3
 istio.io/gogo-genproto/googleapis/google/api
-# istio.io/istio v0.0.0-20211204040849-8835b8da622a
+# istio.io/istio v0.0.0-20211207200644-b1737ef9ef85
 ## explicit
+istio.io/istio/operator/pkg/apis
+istio.io/istio/operator/pkg/apis/istio/v1alpha1
 istio.io/istio/pilot/pkg/features
 istio.io/istio/pilot/pkg/util/sets
 istio.io/istio/pkg/config/constants
@@ -982,6 +985,8 @@ k8s.io/utils/exec
 k8s.io/utils/integer
 k8s.io/utils/pointer
 k8s.io/utils/trace
+# sigs.k8s.io/controller-runtime v0.10.3
+sigs.k8s.io/controller-runtime/pkg/scheme
 # sigs.k8s.io/gateway-api v0.4.0
 sigs.k8s.io/gateway-api/apis/v1alpha2
 sigs.k8s.io/gateway-api/pkg/client/clientset/gateway/versioned
