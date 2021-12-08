@@ -7,6 +7,6 @@ require (
 	github.com/spf13/cobra v1.2.1
 	istio.io/istio v0.0.0-20211207200644-b1737ef9ef85
 	k8s.io/api v0.22.4
-	k8s.io/apimachinery v0.22.4
+	k8s.io/apimachinery v0.23.0
 	k8s.io/client-go v0.22.4
 )
