@@ -1935,6 +1935,8 @@ google.golang.org/grpc v1.40.0/go.mod h1:ogyxbiOoUXAkP+4+xa6PZSE9DZgIHtSpzjDTB9K
 google.golang.org/grpc v1.40.1/go.mod h1:ogyxbiOoUXAkP+4+xa6PZSE9DZgIHtSpzjDTB9KAK34=
 google.golang.org/grpc v1.42.0 h1:XT2/MFpuPFsEX2fWh3YQtHkZ+WYZFQRfaUgLZYj/p6A=
 google.golang.org/grpc v1.42.0/go.mod h1:k+4IHHFw41K8+bbowsex27ge2rCb65oeWqe4jJ590SU=
+google.golang.org/grpc v1.43.0 h1:Eeu7bZtDZ2DpRCsLhUlcrLnvYaMK1Gz86a+hMVvELmM=
+google.golang.org/grpc v1.43.0/go.mod h1:k+4IHHFw41K8+bbowsex27ge2rCb65oeWqe4jJ590SU=
 google.golang.org/grpc/cmd/protoc-gen-go-grpc v1.1.0/go.mod h1:6Kw0yEErY5E/yWrBtf03jp27GLLJujG4z/JK95pnjjw=
 google.golang.org/protobuf v0.0.0-20200109180630-ec00e32a8dfd/go.mod h1:DFci5gLYBciE7Vtevhsrf46CRTquxDuWsQurQQe4oz8=
 google.golang.org/protobuf v0.0.0-20200221191635-4d8936d0db64/go.mod h1:kwYJMbMJ01Woi6D6+Kah6886xMZcty6N08ah7+eCXa0=
@@ -2084,6 +2086,8 @@ istio.io/istio v0.0.0-20211207200644-b1737ef9ef85 h1:7S3GlQYMIBM5na7VdH2danLDAnh
 istio.io/istio v0.0.0-20211207200644-b1737ef9ef85/go.mod h1:Jjvk8+7ocDxPUMp7PZN5guRYPFBoHWtLHTxLV9Du+B0=
 istio.io/istio v0.0.0-20211211014447-a9f4988c313b h1:T5SSmcYZXiM0T7ZW9jrof6s9zpn2kR7oLpS3kD6f9us=
 istio.io/istio v0.0.0-20211211014447-a9f4988c313b/go.mod h1:1q2v1Z83C2l2TOnKXGkkQnlaHm4768L4NiHxPxlI4Pc=
+istio.io/istio v0.0.0-20211216225035-26e13f954263 h1:rbe/IrUDlWVIB3QjTSK9YbWjkub1dY3fLjIwoR0WOI0=
+istio.io/istio v0.0.0-20211216225035-26e13f954263/go.mod h1:UJTp4/6N4FyCNlOojXtz07vo5mVf/qp/oAEh/KA74TI=
 istio.io/pkg v0.0.0-20210914184925-da9399ebffe5 h1:a9BTDf4yGOeMo9KKYETOUrNhUF4vclYl4WtJFqx1xGc=
 istio.io/pkg v0.0.0-20210914184925-da9399ebffe5/go.mod h1:rJLxqU2GEnFR3cIiun1uoiG87ghuQSD8jFkcjyT3Qes=
 istio.io/pkg v0.0.0-20211112173506-bca79fa408e9 h1:+5roGviidNaGj5gXmWIZIlwXn+dJadBeTMWkYdMvSrA=
