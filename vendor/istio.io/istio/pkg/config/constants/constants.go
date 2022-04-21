@@ -122,8 +122,11 @@ const (
 	// Label to skip config comparison.
 	AlwaysPushLabel = "internal.istio.io/always-push"
 
-	// InternalParentName declares the original resource of an internally-generate config. This is used by the gateway-api.
-	InternalParentName = "internal.istio.io/parent"
+	// InternalParentName declares the original resource of an internally-generate config. This is used by ingress and the gateway-api.
+	InternalParentName     = "internal.istio.io/parent"
+	InternalRouteSemantics = "internal.istio.io/route-semantics"
+	RouteSemanticsIngress  = "ingress"
+	RouteSemanticsGateway  = "gateway"
 
 	// TrustworthyJWTPath is the default 3P token to authenticate with third party services
 	TrustworthyJWTPath = "./var/run/secrets/tokens/istio-token"

@@ -64,7 +64,7 @@ type AuthorizationPolicyList struct {
 	v1.TypeMeta `json:",inline"`
 	// +optional
 	v1.ListMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
-	Items       []AuthorizationPolicy `json:"items" protobuf:"bytes,2,rep,name=items"`
+	Items       []*AuthorizationPolicy `json:"items" protobuf:"bytes,2,rep,name=items"`
 }
 
 //
@@ -190,10 +190,10 @@ type PeerAuthenticationList struct {
 	v1.TypeMeta `json:",inline"`
 	// +optional
 	v1.ListMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
-	Items       []PeerAuthentication `json:"items" protobuf:"bytes,2,rep,name=items"`
+	Items       []*PeerAuthentication `json:"items" protobuf:"bytes,2,rep,name=items"`
 }
 
-// please upgrade the proto package
+//
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 // RequestAuthentication defines what request authentication methods are supported by a workload.
@@ -430,5 +430,5 @@ type RequestAuthenticationList struct {
 	v1.TypeMeta `json:",inline"`
 	// +optional
 	v1.ListMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
-	Items       []RequestAuthentication `json:"items" protobuf:"bytes,2,rep,name=items"`
+	Items       []*RequestAuthentication `json:"items" protobuf:"bytes,2,rep,name=items"`
 }

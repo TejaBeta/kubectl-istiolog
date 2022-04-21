@@ -20,7 +20,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// ParentRef identifies an API object (usually a Gateway) that can be considered
+// ParentReference identifies an API object (usually a Gateway) that can be considered
 // a parent of this resource (usually a route). The only kind of parent resource
 // with "Core" support is Gateway. This API may be extended in the future to
 // support additional kinds of parent resources, such as HTTPRoute.
@@ -31,7 +31,7 @@ import (
 // References to objects with invalid Group and Kind are not valid, and must
 // be rejected by the implementation, with appropriate Conditions set
 // on the containing object.
-type ParentRef struct {
+type ParentReference struct {
 	// Group is the group of the referent.
 	//
 	// Support: Core
@@ -65,7 +65,9 @@ type ParentRef struct {
 	// SectionName is the name of a section within the target resource. In the
 	// following resources, SectionName is interpreted as the following:
 	//
-	// * Gateway: Listener Name
+	// * Gateway: Listener Name. When both Port (experimental) and SectionName
+	// are specified, the name and port of the selected listener must match
+	// both specified values.
 	//
 	// Implementations MAY choose to support attaching Routes to other resources.
 	// If that is the case, they MUST clearly document how SectionName is
@@ -84,6 +86,35 @@ type ParentRef struct {
 	//
 	// +optional
 	SectionName *SectionName `json:"sectionName,omitempty"`
+
+	// Port is the network port this Route targets. It can be interpreted
+	// differently based on the type of parent resource:
+	//
+	// * Gateway: All listeners listening on the specified port that also
+	// support this kind of Route(and select this Route). It's not
+	// recommended to set `Port` unless the networking behaviors specified
+	// in a Route must apply to a specific port as opposed to a listener(s)
+	// whose port(s) may be changed. When both Port and SectionName are
+	// specified, the name and port of the selected listener must match both
+	// specified values.
+	//
+	// Implementations MAY choose to support other parent resources.
+	// Implementations supporting other types of parent resources MUST clearly
+	// document how/if Port is interpreted.
+	//
+	// For the purpose of status, an attachment is considered successful as
+	// long as the parent resource accepts it partially. For example, Gateway
+	// listeners can restrict which Routes can attach to them by Route kind,
+	// namespace, or hostname. If 1 of 2 Gateway listeners accept attachment
+	// from the referencing Route, the Route MUST be considered successfully
+	// attached. If no Gateway listeners accept attachment from this Route,
+	// the Route MUST be considered detached from the Gateway.
+	//
+	// Support: Extended
+	//
+	// +optional
+	// <gateway:experimental>
+	Port *PortNumber `json:"port,omitempty"`
 }
 
 // CommonRouteSpec defines the common attributes that all Routes MUST include
@@ -111,7 +142,7 @@ type CommonRouteSpec struct {
 	//
 	// +optional
 	// +kubebuilder:validation:MaxItems=32
-	ParentRefs []ParentRef `json:"parentRefs,omitempty"`
+	ParentRefs []ParentReference `json:"parentRefs,omitempty"`
 }
 
 // PortNumber defines a network port.
@@ -170,7 +201,7 @@ const (
 type RouteParentStatus struct {
 	// ParentRef corresponds with a ParentRef in the spec that this
 	// RouteParentStatus struct describes the status of.
-	ParentRef ParentRef `json:"parentRef"`
+	ParentRef ParentReference `json:"parentRef"`
 
 	// ControllerName is a domain/path string that indicates the name of the
 	// controller that wrote this status. This corresponds with the
@@ -251,6 +282,22 @@ type RouteStatus struct {
 // +kubebuilder:validation:MaxLength=253
 // +kubebuilder:validation:Pattern=`^(\*\.)?[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$`
 type Hostname string
+
+// PreciseHostname is the fully qualified domain name of a network host. This matches
+// the RFC 1123 definition of a hostname with 1 notable exception that
+// numeric IP addresses are not allowed.
+//
+// PreciseHostname can be "precise" which is a domain name without the terminating
+// dot of a network host (e.g. "foo.example.com").
+//
+// Note that as per RFC1035 and RFC1123, a *label* must consist of lower case
+// alphanumeric characters or '-', and must start and end with an alphanumeric
+// character. No other punctuation is allowed.
+//
+// +kubebuilder:validation:MinLength=1
+// +kubebuilder:validation:MaxLength=253
+// +kubebuilder:validation:Pattern=`^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$`
+type PreciseHostname string
 
 // Group refers to a Kubernetes Group. It must either be an empty string or a
 // RFC 1123 subdomain.
@@ -383,3 +430,86 @@ type AnnotationKey string
 // +kubebuilder:validation:MinLength=0
 // +kubebuilder:validation:MaxLength=4096
 type AnnotationValue string
+
+// AddressRouteMatches defines AddressMatch rules for inbound traffic according to
+// source and/or destination address of a packet or connection.
+type AddressRouteMatches struct {
+	// SourceAddresses indicates the originating (source) network
+	// addresses which are valid for routing traffic.
+	//
+	// Support: Extended
+	SourceAddresses []AddressMatch `json:"sourceAddresses"`
+
+	// DestinationAddresses indicates the destination network addresses
+	// which are valid for routing traffic.
+	//
+	// Support: Extended
+	DestinationAddresses []AddressMatch `json:"destinationAddresses"`
+}
+
+// AddressMatch defines matching rules for network addresses by type.
+type AddressMatch struct {
+	// Type of the address, either IPAddress or NamedAddress.
+	//
+	// If NamedAddress is used this is a custom and specific value for each
+	// implementation to handle (and add validation for) according to their
+	// own needs.
+	//
+	// For IPAddress the implementor may expect either IPv4 or IPv6.
+	//
+	// Support: Core (IPAddress)
+	// Support: Custom (NamedAddress)
+	//
+	// +optional
+	// +kubebuilder:validation:Enum=IPAddress;NamedAddress
+	// +kubebuilder:default=IPAddress
+	Type *AddressType `json:"type,omitempty"`
+
+	// Value of the address. The validity of the values will depend
+	// on the type and support by the controller.
+	//
+	// If implementations support proxy-protocol (see:
+	// https://www.haproxy.org/download/1.8/doc/proxy-protocol.txt) they
+	// must respect the connection metadata from proxy-protocol
+	// in the match logic implemented for these address values.
+	//
+	// Examples: `1.2.3.4`, `128::1`, `my-named-address`.
+	//
+	// Support: Core
+	//
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=253
+	Value string `json:"value"`
+}
+
+// AddressType defines how a network address is represented as a text string.
+type AddressType string
+
+const (
+	// A textual representation of a numeric IP address. IPv4
+	// addresses must be in dotted-decimal form. IPv6 addresses
+	// must be in a standard IPv6 text representation
+	// (see [RFC 5952](https://tools.ietf.org/html/rfc5952)).
+	//
+	// This type is intended for specific addresses. Address ranges are not
+	// supported (e.g. you can not use a CIDR range like 127.0.0.0/24 as an
+	// IPAddress).
+	//
+	// Support: Extended
+	IPAddressType AddressType = "IPAddress"
+
+	// A Hostname represents a DNS based ingress point. This is similar to the
+	// corresponding hostname field in Kubernetes load balancer status. For
+	// example, this concept may be used for cloud load balancers where a DNS
+	// name is used to expose a load balancer.
+	//
+	// Support: Extended
+	HostnameAddressType AddressType = "Hostname"
+
+	// A NamedAddress provides a way to reference a specific IP address by name.
+	// For example, this may be a name or other unique identifier that refers
+	// to a resource on a cloud provider such as a static IP.
+	//
+	// Support: Implementation-Specific
+	NamedAddressType AddressType = "NamedAddress"
+)

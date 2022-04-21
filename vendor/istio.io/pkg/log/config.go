@@ -52,7 +52,6 @@
 package log
 
 import (
-	"fmt"
 	"os"
 	"strings"
 	"sync/atomic"
@@ -271,8 +270,6 @@ func updateScopes(options *Options) error {
 
 		if scope, ok := allScopes[s]; ok {
 			scope.SetLogCallers(true)
-		} else {
-			return fmt.Errorf("unknown scope '%s' specified", s)
 		}
 	}
 
@@ -307,8 +304,6 @@ func processLevels(allScopes map[string]*Scope, arg string, setter func(*Scope, 
 			logGrpc = true
 			setter(grpcScope, l)
 			return nil
-		} else {
-			return fmt.Errorf("unknown scope '%s' specified", s)
 		}
 	}
 
@@ -335,23 +330,21 @@ func Configure(options *Options) error {
 	if options.teeToStackdriver {
 		var closeFn, captureCloseFn func() error
 		// build stackdriver core.
-		core, closeFn, err =
-			teeToStackdriver(
-				core,
-				options.stackdriverTargetProject,
-				options.stackdriverQuotaProject,
-				options.stackdriverLogName,
-				options.stackdriverResource)
+		core, closeFn, err = teeToStackdriver(
+			core,
+			options.stackdriverTargetProject,
+			options.stackdriverQuotaProject,
+			options.stackdriverLogName,
+			options.stackdriverResource)
 		if err != nil {
 			return err
 		}
-		captureCore, captureCloseFn, err =
-			teeToStackdriver(
-				captureCore,
-				options.stackdriverTargetProject,
-				options.stackdriverQuotaProject,
-				options.stackdriverLogName,
-				options.stackdriverResource)
+		captureCore, captureCloseFn, err = teeToStackdriver(
+			captureCore,
+			options.stackdriverTargetProject,
+			options.stackdriverQuotaProject,
+			options.stackdriverLogName,
+			options.stackdriverResource)
 		if err != nil {
 			return err
 		}
@@ -361,13 +354,7 @@ func Configure(options *Options) error {
 	if options.teeToUDSServer {
 		// build uds core.
 		core = teeToUDSServer(core, options.udsSocketAddress, options.udsServerPath)
-		if err != nil {
-			return err
-		}
 		captureCore = teeToUDSServer(captureCore, options.udsSocketAddress, options.udsServerPath)
-		if err != nil {
-			return err
-		}
 	}
 
 	pt := patchTable{
