@@ -175,6 +175,9 @@
             "items": {
               "type": "string"
             }
+          },
+          "workloadSelector": {
+            "$ref": "#/components/schemas/istio.type.v1beta1.WorkloadSelector"
           }
         }
       },
@@ -184,6 +187,10 @@
         "properties": {
           "localityLbSetting": {
             "$ref": "#/components/schemas/istio.networking.v1alpha3.LocalityLoadBalancerSetting"
+          },
+          "warmupDurationSecs": {
+            "description": "Represents the warmup duration of Service. If set, the newly created endpoint of service remains in warmup mode starting from its creation time for the duration of this window and Istio progressively increases amount of traffic for that endpoint instead of sending proportional amount of traffic. This should be enabled for services that require warm up time to serve full production load with reasonable latency. Currently this is only supported for ROUND_ROBIN and LEAST_CONN load balancers.",
+            "type": "string"
           }
         },
         "oneOf": [
@@ -361,10 +368,12 @@
         "description": "Standard load balancing algorithms that require no tuning.",
         "type": "string",
         "enum": [
-          "ROUND_ROBIN",
+          "UNSPECIFIED",
           "LEAST_CONN",
           "RANDOM",
-          "PASSTHROUGH"
+          "PASSTHROUGH",
+          "ROUND_ROBIN",
+          "LEAST_REQUEST"
         ]
       },
       "istio.networking.v1alpha3.LocalityLoadBalancerSetting": {
@@ -552,6 +561,19 @@
           },
           "tls": {
             "$ref": "#/components/schemas/istio.networking.v1alpha3.ClientTLSSettings"
+          }
+        }
+      },
+      "istio.type.v1beta1.WorkloadSelector": {
+        "description": "WorkloadSelector specifies the criteria used to determine if a policy can be applied to a proxy. The matching criteria includes the metadata associated with a proxy, workload instance info such as labels attached to the pod/VM, or any other info that the proxy provides to Istio during the initial handshake. If multiple conditions are specified, all conditions need to match in order for the workload instance to be selected. Currently, only label based selection mechanism is supported.",
+        "type": "object",
+        "properties": {
+          "matchLabels": {
+            "description": "One or more labels that indicate a specific set of pods/VMs on which a policy should be applied. The scope of label search is restricted to the configuration namespace in which the resource is present.",
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
           }
         }
       }

@@ -104,7 +104,7 @@ type ReferencePolicyFrom struct {
 	// Namespace is the namespace of the referent.
 	//
 	// Support: Core
-	Namespace Namespace `json:"namespace,omitempty"`
+	Namespace Namespace `json:"namespace"`
 }
 
 // ReferencePolicyTo describes what Kinds are allowed as targets of the
@@ -123,7 +123,7 @@ type ReferencePolicyTo struct {
 	// * Service
 	Kind Kind `json:"kind"`
 
-	// Name is the name of the referent. When unspecified or empty, this policy
+	// Name is the name of the referent. When unspecified, this policy
 	// refers to all resources of the specified Group and Kind in the local
 	// namespace.
 	//
