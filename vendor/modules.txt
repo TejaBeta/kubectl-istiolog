@@ -424,7 +424,7 @@ istio.io/client-go/pkg/listers/networking/v1alpha3
 istio.io/client-go/pkg/listers/networking/v1beta1
 istio.io/client-go/pkg/listers/security/v1beta1
 istio.io/client-go/pkg/listers/telemetry/v1alpha1
-# istio.io/istio v0.0.0-20220422153250-058f0d43a3ba
+# istio.io/istio v0.0.0-20220422194550-d7a85c5c4395
 ## explicit
 istio.io/istio/operator/pkg/apis
 istio.io/istio/operator/pkg/apis/istio/v1alpha1
