@@ -3033,6 +3033,8 @@ istio.io/istio v0.0.0-20220421164224-0b66378bcb8c h1:5MVvcDdxH3kWQr3chDaEFgm23qr
 istio.io/istio v0.0.0-20220421164224-0b66378bcb8c/go.mod h1:IOlaIdD3yS0bVC0Eyl5P+Bv8/K0JLJaLaOY6A9FteZY=
 istio.io/istio v0.0.0-20220421201215-68f6471fb2b0 h1:tjn5/MNDR0+2PmaJq0jCBlIoQq8cfxcEvyQDi23MJkE=
 istio.io/istio v0.0.0-20220421201215-68f6471fb2b0/go.mod h1:s7b8ApGF96JispFVNcSLgIDZkvansRwH5rovqOrsgNI=
+istio.io/istio v0.0.0-20220422153250-058f0d43a3ba h1:bfbKQmYlzV8jy8bhv5qGAD/3EFcxegYan3QbFjpFeVg=
+istio.io/istio v0.0.0-20220422153250-058f0d43a3ba/go.mod h1:s7b8ApGF96JispFVNcSLgIDZkvansRwH5rovqOrsgNI=
 istio.io/pkg v0.0.0-20210914184925-da9399ebffe5 h1:a9BTDf4yGOeMo9KKYETOUrNhUF4vclYl4WtJFqx1xGc=
 istio.io/pkg v0.0.0-20210914184925-da9399ebffe5/go.mod h1:rJLxqU2GEnFR3cIiun1uoiG87ghuQSD8jFkcjyT3Qes=
 istio.io/pkg v0.0.0-20211112173506-bca79fa408e9 h1:+5roGviidNaGj5gXmWIZIlwXn+dJadBeTMWkYdMvSrA=
