@@ -384,7 +384,7 @@ var (
 	ClusterName = env.RegisterStringVar("CLUSTER_ID", "Kubernetes",
 		"Defines the cluster and service registry that this Istiod instance is belongs to").Get()
 
-	ExternalIstiod = env.RegisterBoolVar("EXTERNAL_ISTIOD", false,
+	ExternalIstiod = env.RegisterBoolVar("EXTERNAL_ISTIOD", true,
 		"If this is set to true, one Istiod will control remote clusters including CA.").Get()
 
 	EnableCAServer = env.RegisterBoolVar("ENABLE_CA_SERVER", true,
@@ -493,12 +493,6 @@ var (
 
 	WorkloadEntryCrossCluster = env.RegisterBoolVar("PILOT_ENABLE_CROSS_CLUSTER_WORKLOAD_ENTRY", true,
 		"If enabled, pilot will read WorkloadEntry from other clusters, selectable by Services in that cluster.").Get()
-
-	FlowControlTimeout = env.RegisterDurationVar(
-		"PILOT_FLOW_CONTROL_TIMEOUT",
-		15*time.Second,
-		"If set, the max amount of time to delay a push by. Depends on PILOT_ENABLE_FLOW_CONTROL.",
-	).Get()
 
 	EnableDestinationRuleInheritance = env.RegisterBoolVar(
 		"PILOT_ENABLE_DESTINATION_RULE_INHERITANCE",
@@ -611,6 +605,9 @@ var (
 
 	EnableTLSOnSidecarIngress = env.RegisterBoolVar("ENABLE_TLS_ON_SIDECAR_INGRESS", false,
 		"If enabled, the TLS configuration on Sidecar.ingress will take effect").Get()
+
+	EnableAutoSni = env.RegisterBoolVar("ENABLE_AUTO_SNI", false,
+		"If enabled, automatically set SNI when `DestinationRules` do not specify the same").Get()
 
 	InsecureKubeConfigOptions = func() sets.Set {
 		v := env.RegisterStringVar(
