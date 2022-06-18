@@ -135,7 +135,7 @@ type GatewaySpec struct {
 	// it assigns to the Gateway and add a corresponding entry in
 	// GatewayStatus.Addresses.
 	//
-	// Support: Core
+	// Support: Extended
 	//
 	// +optional
 	// +kubebuilder:validation:MaxItems=16
@@ -641,7 +641,6 @@ const (
 	//
 	// * "HostnameConflict"
 	// * "ProtocolConflict"
-	// * "RouteConflict"
 	//
 	// Possible reasons for this condition to be False are:
 	//
@@ -663,13 +662,6 @@ const (
 	// number, but have conflicting protocol specifications.
 	ListenerReasonProtocolConflict ListenerConditionReason = "ProtocolConflict"
 
-	// This reason is used with the "Conflicted" condition when the route
-	// resources selected for this Listener conflict with other
-	// specified properties of the Listener (e.g. Protocol).
-	// For example, a Listener that specifies "UDP" as the protocol
-	// but a route selector that resolves "TCPRoute" objects.
-	ListenerReasonRouteConflict ListenerConditionReason = "RouteConflict"
-
 	// This reason is used with the "Conflicted" condition when the condition
 	// is False.
 	ListenerReasonNoConflicts ListenerConditionReason = "NoConflicts"
@@ -689,7 +681,6 @@ const (
 	// Possible reasons for this condition to be true are:
 	//
 	// * "PortUnavailable"
-	// * "UnsupportedExtension"
 	// * "UnsupportedProtocol"
 	// * "UnsupportedAddress"
 	//
@@ -709,12 +700,6 @@ const (
 	// * The port is already in use.
 	// * The port is not supported by the implementation.
 	ListenerReasonPortUnavailable ListenerConditionReason = "PortUnavailable"
-
-	// This reason is used with the "Detached" condition when the
-	// controller detects that an implementation-specific Listener
-	// extension is being requested, but is not able to support
-	// the extension.
-	ListenerReasonUnsupportedExtension ListenerConditionReason = "UnsupportedExtension"
 
 	// This reason is used with the "Detached" condition when the
 	// Listener could not be attached to be Gateway because its
