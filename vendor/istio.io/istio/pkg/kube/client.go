@@ -155,6 +155,9 @@ type ExtendedClient interface {
 	// EnvoyDo makes an http request to the Envoy in the specified pod.
 	EnvoyDo(ctx context.Context, podName, podNamespace, method, path string) ([]byte, error)
 
+	// EnvoyDoWithPort makes an http request to the Envoy in the specified pod and port.
+	EnvoyDoWithPort(ctx context.Context, podName, podNamespace, method, path string, port int) ([]byte, error)
+
 	// AllDiscoveryDo makes an http request to each Istio discovery instance.
 	AllDiscoveryDo(ctx context.Context, namespace, path string) (map[string][]byte, error)
 
@@ -288,7 +291,7 @@ func NewFakeClientWithVersion(minor string, objects ...runtime.Object) ExtendedC
 	c := NewFakeClient(objects...).(*client)
 	if minor != "" && minor != "latest" {
 		c.versionOnce.Do(func() {
-			c.version = &kubeVersion.Info{Major: "1", Minor: minor}
+			c.version = &kubeVersion.Info{Major: "1", Minor: minor, GitVersion: fmt.Sprintf("v1.%v.0", minor)}
 		})
 	}
 	return c
@@ -742,6 +745,10 @@ func (c *client) AllDiscoveryDo(ctx context.Context, istiodNamespace, path strin
 
 func (c *client) EnvoyDo(ctx context.Context, podName, podNamespace, method, path string) ([]byte, error) {
 	return c.portForwardRequest(ctx, podName, podNamespace, method, path, 15000)
+}
+
+func (c *client) EnvoyDoWithPort(ctx context.Context, podName, podNamespace, method, path string, port int) ([]byte, error) {
+	return c.portForwardRequest(ctx, podName, podNamespace, method, path, port)
 }
 
 func (c *client) portForwardRequest(ctx context.Context, podName, podNamespace, method, path string, port int) ([]byte, error) {
