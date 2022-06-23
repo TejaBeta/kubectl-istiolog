@@ -5,7 +5,7 @@ go 1.18
 require (
 	github.com/sirupsen/logrus v1.8.1
 	github.com/spf13/cobra v1.4.0
-	istio.io/istio v0.0.0-20220618015910-605def65fc7b
+	istio.io/istio v0.0.0-20220623031451-b26ae0e867fe
 	k8s.io/api v0.24.1
 	k8s.io/apimachinery v0.24.1
 	k8s.io/client-go v0.24.1
@@ -96,8 +96,8 @@ require (
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
-	istio.io/api v0.0.0-20220616211955-cb70ff7fdb4c // indirect
-	istio.io/client-go v1.12.0-alpha.5.0.20220616212452-c293c5e3ef6f // indirect
+	istio.io/api v0.0.0-20220621155648-3e39d064ab6b // indirect
+	istio.io/client-go v1.12.0-alpha.5.0.20220621160149-5093abe1f485 // indirect
 	istio.io/pkg v0.0.0-20220519183359-907110f1545f // indirect
 	k8s.io/apiextensions-apiserver v0.24.0 // indirect
 	k8s.io/cli-runtime v0.24.1 // indirect
