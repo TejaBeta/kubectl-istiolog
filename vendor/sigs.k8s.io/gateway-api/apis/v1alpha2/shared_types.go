@@ -84,15 +84,15 @@ type ParentReference struct {
 	SectionName *SectionName `json:"sectionName,omitempty"`
 
 	// Port is the network port this Route targets. It can be interpreted
-	// differently based on the type of parent resource:
+	// differently based on the type of parent resource.
 	//
-	// * Gateway: All listeners listening on the specified port that also
-	// support this kind of Route(and select this Route). It's not
-	// recommended to set `Port` unless the networking behaviors specified
-	// in a Route must apply to a specific port as opposed to a listener(s)
-	// whose port(s) may be changed. When both Port and SectionName are
-	// specified, the name and port of the selected listener must match both
-	// specified values.
+	// When the parent resource is a Gateway, this targets all listeners
+	// listening on the specified port that also support this kind of Route(and
+	// select this Route). It's not recommended to set `Port` unless the
+	// networking behaviors specified in a Route must apply to a specific port
+	// as opposed to a listener(s) whose port(s) may be changed. When both Port
+	// and SectionName are specified, the name and port of the selected listener
+	// must match both specified values.
 	//
 	// Implementations MAY choose to support other parent resources.
 	// Implementations supporting other types of parent resources MUST clearly
@@ -150,9 +150,9 @@ type PortNumber int32
 // BackendRef defines how a Route should forward a request to a Kubernetes
 // resource.
 //
-// Note that when a namespace is specified, a ReferencePolicy object
+// Note that when a namespace is specified, a ReferenceGrant object
 // is required in the referent namespace to allow that namespace's
-// owner to accept the reference. See the ReferencePolicy documentation
+// owner to accept the reference. See the ReferenceGrant documentation
 // for details.
 type BackendRef struct {
 	// BackendObjectReference references a Kubernetes object.
@@ -239,7 +239,7 @@ const (
 	// This reason is used with the "ResolvedRefs" condition when
 	// one of the Listener's Routes has a BackendRef to an object in
 	// another namespace, where the object in the other namespace does
-	// not have a ReferencePolicy explicitly allowing the reference.
+	// not have a ReferenceGrant explicitly allowing the reference.
 	RouteReasonRefNotPermitted RouteConditionReason = "RefNotPermitted"
 )
 
@@ -480,6 +480,20 @@ type AnnotationKey string
 type AnnotationValue string
 
 // AddressType defines how a network address is represented as a text string.
+// This may take two possible forms:
+//
+// * A predefined CamelCase string identifier (currently limited to `IPAddress` or `Hostname`)
+// * A domain-prefixed string identifier (like `acme.io/CustomAddressType`)
+//
+// Values `IPAddress` and `Hostname` have Extended support.
+//
+// All other values, including domain-prefixed values have Custom support, which
+// are used in implementation-specific behaviors. Support for additional
+// predefined CamelCase identifiers may be added in future releases.
+//
+// +kubebuilder:validation:MinLength=1
+// +kubebuilder:validation:MaxLength=253
+// +kubebuilder:validation:Pattern=`^Hostname|IPAddress|[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*\/[A-Za-z0-9\/\-._~%!$&'()*+,;=:]+$`
 type AddressType string
 
 const (
@@ -502,11 +516,4 @@ const (
 	//
 	// Support: Extended
 	HostnameAddressType AddressType = "Hostname"
-
-	// A NamedAddress provides a way to reference a specific IP address by name.
-	// For example, this may be a name or other unique identifier that refers
-	// to a resource on a cloud provider such as a static IP.
-	//
-	// Support: Implementation-Specific
-	NamedAddressType AddressType = "NamedAddress"
 )
