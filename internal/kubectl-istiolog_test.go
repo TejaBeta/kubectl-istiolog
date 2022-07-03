@@ -14,6 +14,7 @@ package internal
 
 import (
 	"context"
+	"regexp"
 	"testing"
 
 	appv1 "k8s.io/api/core/v1"
@@ -115,6 +116,33 @@ func TestIstioLoggerName_A001(t *testing.T) {
 	}
 }
 
+// We successfully parsed logger name & level and we failed on envoy call
+func successfullyParsedLoggerNameAndLevel(err error) bool {
+	errString := err.Error()
+	return err != nil && regexp.MustCompile("failed to execute command on Envoy").MatchString(errString)
+}
+
+func TestIstioLoggerName_A002(t *testing.T) {
+	cs := testclient.NewSimpleClientset()
+	input := &appv1.Pod{ObjectMeta: metav1.ObjectMeta{Name: "unit-test-pod"}}
+
+	options := options{
+		clientset: cs,
+		namespace: "unit-test-namespace",
+	}
+
+	_, err := cs.CoreV1().Pods(options.namespace).Create(context.TODO(), input, metav1.CreateOptions{})
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+
+	err = options.KubectlIstioLog("unit-test-pod", "debug", false)
+
+	if !successfullyParsedLoggerNameAndLevel(err) {
+		t.Errorf("Error while using illegal loggerLevel")
+	}
+}
+
 func TestIstioLoggerLevel_A001(t *testing.T) {
 	cs := testclient.NewSimpleClientset()
 	input := &appv1.Pod{ObjectMeta: metav1.ObjectMeta{Name: "unit-test-pod"}}
@@ -132,5 +160,25 @@ func TestIstioLoggerLevel_A001(t *testing.T) {
 	err = options.KubectlIstioLog("unit-test-pod", "debug:hello", false)
 	if err == nil {
 		t.Errorf("Error while using illegal loggerLevel")
+	}
+}
+
+func TestIstioLoggerLevel_A002(t *testing.T) {
+	cs := testclient.NewSimpleClientset()
+	input := &appv1.Pod{ObjectMeta: metav1.ObjectMeta{Name: "unit-test-pod"}}
+
+	options := options{
+		clientset: cs,
+		namespace: "unit-test-namespace",
+	}
+
+	_, err := cs.CoreV1().Pods(options.namespace).Create(context.TODO(), input, metav1.CreateOptions{})
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+
+	err = options.KubectlIstioLog("unit-test-pod", "http:debug", false)
+	if !successfullyParsedLoggerNameAndLevel(err) {
+		t.Errorf("Error while using illegal loggerName")
 	}
 }
