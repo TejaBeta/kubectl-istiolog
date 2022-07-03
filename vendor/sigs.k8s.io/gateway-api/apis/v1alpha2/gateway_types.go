@@ -172,6 +172,10 @@ type Listener struct {
 	// accepted. For more information, refer to the Route specific Hostnames
 	// documentation.
 	//
+	// Hostnames that are prefixed with a wildcard label (`*.`) are interpreted
+	// as a suffix match. That means that a match for `*.example.com` would match
+	// both `test.example.com`, and `foo.test.example.com`, but not `example.com`.
+	//
 	// Support: Core
 	//
 	// +optional
@@ -310,8 +314,8 @@ type GatewayTLSConfig struct {
 	// a Listener, but this behavior is implementation-specific.
 	//
 	// References to a resource in different namespace are invalid UNLESS there
-	// is a ReferencePolicy in the target namespace that allows the certificate
-	// to be attached. If a ReferencePolicy does not allow this reference, the
+	// is a ReferenceGrant in the target namespace that allows the certificate
+	// to be attached. If a ReferenceGrant does not allow this reference, the
 	// "ResolvedRefs" condition MUST be set to False for this listener with the
 	// "InvalidCertificateRef" reason.
 	//
@@ -327,7 +331,7 @@ type GatewayTLSConfig struct {
 	//
 	// +optional
 	// +kubebuilder:validation:MaxItems=64
-	CertificateRefs []*SecretObjectReference `json:"certificateRefs,omitempty"`
+	CertificateRefs []SecretObjectReference `json:"certificateRefs,omitempty"`
 
 	// Options are a list of key/value pairs to enable extended TLS
 	// configuration for each implementation. For example, configuring the
@@ -450,7 +454,6 @@ type GatewayAddress struct {
 	// Type of the address.
 	//
 	// +optional
-	// +kubebuilder:validation:Enum=IPAddress;Hostname;NamedAddress
 	// +kubebuilder:default=IPAddress
 	Type *AddressType `json:"type,omitempty"`
 
@@ -754,7 +757,7 @@ const (
 	// This reason is used with the "ResolvedRefs" condition when
 	// one of the Listener's Routes has a BackendRef to an object in
 	// another namespace, where the object in the other namespace does
-	// not have a ReferencePolicy explicitly allowing the reference.
+	// not have a ReferenceGrant explicitly allowing the reference.
 	ListenerReasonRefNotPermitted ListenerConditionReason = "RefNotPermitted"
 )
 

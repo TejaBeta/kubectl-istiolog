@@ -74,8 +74,13 @@ type HTTPRouteSpec struct {
 	// * A Listener with `*.example.com` as the hostname matches HTTPRoutes
 	//   that have either not specified any hostnames or have specified at least
 	//   one hostname that matches the Listener hostname. For example,
-	//   `test.example.com` and `*.example.com` would both match. On the other
-	//   hand, `example.com` and `test.example.net` would not match.
+	//   `*.example.com`, `test.example.com`, and `foo.test.example.com` would
+	//   all match. On the other hand, `example.com` and `test.example.net` would
+	//   not match.
+	//
+	// Hostnames that are prefixed with a wildcard label (`*.`) are interpreted
+	// as a suffix match. That means that a match for `*.example.com` would match
+	// both `test.example.com`, and `foo.test.example.com`, but not `example.com`.
 	//
 	// If both the Listener and HTTPRoute have specified hostnames, any
 	// HTTPRoute hostnames that do not match the Listener hostname MUST be
@@ -182,6 +187,12 @@ type HTTPRouteRule struct {
 	// Specifying a core filter multiple times has unspecified or custom
 	// conformance.
 	//
+	// All filters are expected to be compatible with each other except for the
+	// URLRewrite and RequestRedirect filters, which may not be combined. If an
+	// implementation can not support other combinations of filters, they must clearly
+	// document that limitation. In all cases where incompatible or unsupported
+	// filters are specified, implementations MUST add a warning condition to status.
+	//
 	// Support: Core
 	//
 	// +optional
@@ -191,7 +202,7 @@ type HTTPRouteRule struct {
 	// BackendRefs defines the backend(s) where matching requests should be
 	// sent.
 	//
-	// A 404 status code MUST be returned if there are no BackendRefs or filters
+	// A 500 status code MUST be returned if there are no BackendRefs or filters
 	// specified that would result in a response being sent.
 	//
 	// A BackendRef is considered invalid when it refers to:
@@ -199,13 +210,13 @@ type HTTPRouteRule struct {
 	// * an unknown or unsupported kind of resource
 	// * a resource that does not exist
 	// * a resource in another namespace when the reference has not been
-	//   explicitly allowed by a ReferencePolicy (or equivalent concept).
+	//   explicitly allowed by a ReferenceGrant (or equivalent concept).
 	//
-	// When a BackendRef is invalid, 404 status codes MUST be returned for
+	// When a BackendRef is invalid, 500 status codes MUST be returned for
 	// requests that would have otherwise been routed to an invalid backend. If
 	// multiple backends are specified, and some are invalid, the proportion of
 	// requests that would otherwise have been routed to an invalid backend
-	// MUST receive a 404 status code.
+	// MUST receive a 500 status code.
 	//
 	// When a BackendRef refers to a Service that has no ready endpoints, it is
 	// recommended to return a 503 status code.
@@ -244,7 +255,7 @@ const (
 	// path element refers to the list of labels in the path split by
 	// the `/` separator. When specified, a trailing `/` is ignored.
 	//
-	// For example. the paths `/abc`, `/abc/`, and `/abc/def` would all match
+	// For example, the paths `/abc`, `/abc/`, and `/abc/def` would all match
 	// the prefix `/abc`, but the path `/abcd` would not.
 	//
 	// "PathPrefix" is semantically equivalent to the "Prefix" path type in the
@@ -711,6 +722,12 @@ const (
 	// replaced by the substitution value. For example, a path with a prefix
 	// match of "/foo" and a ReplacePrefixMatch substitution of "/bar" will have
 	// the "/foo" prefix replaced with "/bar" in matching requests.
+	//
+	// Note that this matches the behavior of the PathPrefix match type. This
+	// matches full path elements. A path element refers to the list of labels
+	// in the path split by the `/` separator. When specified, a trailing `/` is
+	// ignored. For example, the paths `/abc`, `/abc/`, and `/abc/def` would all
+	// match the prefix `/abc`, but the path `/abcd` would not.
 	PrefixMatchHTTPPathModifier HTTPPathModifierType = "ReplacePrefixMatch"
 )
 
@@ -736,6 +753,12 @@ type HTTPPathModifier struct {
 	// match of a request during a rewrite or redirect. For example, a request
 	// to "/foo/bar" with a prefix match of "/foo" would be modified to "/bar".
 	//
+	// Note that this matches the behavior of the PathPrefix match type. This
+	// matches full path elements. A path element refers to the list of labels
+	// in the path split by the `/` separator. When specified, a trailing `/` is
+	// ignored. For example, the paths `/abc`, `/abc/`, and `/abc/def` would all
+	// match the prefix `/abc`, but the path `/abcd` would not.
+	//
 	// <gateway:experimental>
 	// +kubebuilder:validation:MaxLength=1024
 	// +optional
@@ -743,7 +766,7 @@ type HTTPPathModifier struct {
 }
 
 // HTTPRequestRedirect defines a filter that redirects a request. This filter
-// MUST not be used on the same Route rule as a HTTPURLRewrite filter.
+// MUST NOT be used on the same Route rule as a HTTPURLRewrite filter.
 type HTTPRequestRedirectFilter struct {
 	// Scheme is the scheme to be used in the value of the `Location`
 	// header in the response.
@@ -795,7 +818,7 @@ type HTTPRequestRedirectFilter struct {
 
 // HTTPURLRewriteFilter defines a filter that modifies a request during
 // forwarding. At most one of these filters may be used on a Route rule. This
-// may not be used on the same Route rule as a HTTPRequestRedirect filter.
+// MUST NOT be used on the same Route rule as a HTTPRequestRedirect filter.
 //
 // <gateway:experimental>
 // Support: Extended
@@ -828,7 +851,7 @@ type HTTPRequestMirrorFilter struct {
 	// this backend in the underlying implementation.
 	//
 	// If there is a cross-namespace reference to an *existing* object
-	// that is not allowed by a ReferencePolicy, the controller must ensure the
+	// that is not allowed by a ReferenceGrant, the controller must ensure the
 	// "ResolvedRefs"  condition on the Route is set to `status: False`,
 	// with the "RefNotPermitted" reason and not configure this backend in the
 	// underlying implementation.
@@ -851,7 +874,7 @@ type HTTPBackendRef struct {
 	// configure this backend in the underlying implementation.
 	//
 	// If there is a cross-namespace reference to an *existing* object
-	// that is not covered by a ReferencePolicy, the controller must ensure the
+	// that is not covered by a ReferenceGrant, the controller must ensure the
 	// "ResolvedRefs"  condition on the Route is set to `status: False`,
 	// with the "RefNotPermitted" reason and not configure this backend in the
 	// underlying implementation.
