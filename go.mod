@@ -3,7 +3,7 @@ module github.com/TejaBeta/kubectl-istiolog
 go 1.18
 
 require (
-	github.com/sirupsen/logrus v1.8.1
+	github.com/sirupsen/logrus v1.9.0
 	github.com/spf13/cobra v1.5.0
 	istio.io/istio v0.0.0-20220710023713-3bb4097d2a93
 	k8s.io/api v0.25.0
