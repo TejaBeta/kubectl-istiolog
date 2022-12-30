@@ -23,29 +23,29 @@
 // easy to build programs that use a consistent interface for logging. Here's an example
 // of a simple Cobra-based program using this log package:
 //
-//		func main() {
-//			// get the default logging options
-//			options := log.DefaultOptions()
+//			func main() {
+//				// get the default logging options
+//				options := log.DefaultOptions()
 //
-//			rootCmd := &cobra.Command{
-//				Run: func(cmd *cobra.Command, args []string) {
+//				rootCmd := &cobra.Command{
+//					Run: func(cmd *cobra.Command, args []string) {
 //
-//					// configure the logging system
-//					if err := log.Configure(options); err != nil {
-//                      // print an error and quit
-//                  }
+//						// configure the logging system
+//						if err := log.Configure(options); err != nil {
+//	                     // print an error and quit
+//	                 }
 //
-//					// output some logs
-//					log.Info("Hello")
-//					log.Sync()
-//				},
+//						// output some logs
+//						log.Info("Hello")
+//						log.Sync()
+//					},
+//				}
+//
+//				// add logging-specific flags to the cobra command
+//				options.AttachCobraFlags(rootCmd)
+//				rootCmd.SetArgs(os.Args[1:])
+//				rootCmd.Execute()
 //			}
-//
-//			// add logging-specific flags to the cobra command
-//			options.AttachCobraFlags(rootCmd)
-//			rootCmd.SetArgs(os.Args[1:])
-//			rootCmd.Execute()
-//		}
 //
 // Once configured, this package intercepts the output of the standard golang "log" package as well as anything
 // sent to the global zap logger (zap.L()).
@@ -57,11 +57,11 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/natefinch/lumberjack"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"go.uber.org/zap/zapgrpc"
 	"google.golang.org/grpc/grpclog"
+	"gopkg.in/natefinch/lumberjack.v2"
 	"k8s.io/klog/v2"
 )
 

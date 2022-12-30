@@ -23,6 +23,7 @@ import (
 // +genclient
 // +kubebuilder:object:root=true
 // +kubebuilder:resource:categories=gateway-api
+// +kubebuilder:storageversion
 // +kubebuilder:subresource:status
 // +kubebuilder:printcolumn:name="Hostnames",type=string,JSONPath=`.spec.hostnames`
 // +kubebuilder:printcolumn:name="Age",type=date,JSONPath=`.metadata.creationTimestamp`
@@ -92,6 +93,16 @@ type HTTPRouteSpec struct {
 	// implementation must raise an 'Accepted' Condition with a status of
 	// `False` in the corresponding RouteParentStatus.
 	//
+	// In the event that multiple HTTPRoutes specify intersecting hostnames (e.g.
+	// overlapping wildcard matching and exact matching hostnames), precedence must
+	// be given to rules from the HTTPRoute with the largest number of:
+	//
+	// * Characters in a matching non-wildcard hostname.
+	// * Characters in a matching hostname.
+	//
+	// If ties exist across multiple Routes, the matching precedence rules for
+	// HTTPRouteMatches takes over.
+	//
 	// Support: Core
 	//
 	// +optional
@@ -141,12 +152,10 @@ type HTTPRouteRule struct {
 	// HTTP request.
 	//
 	// Proxy or Load Balancer routing configuration generated from HTTPRoutes
-	// MUST prioritize rules based on the following criteria, continuing on
-	// ties. Precedence must be given to the the Rule with the largest number
-	// of:
+	// MUST prioritize matches based on the following criteria, continuing on
+	// ties. Across all rules specified on applicable Routes, precedence must be
+	// given to the match with the largest number of:
 	//
-	// * Characters in a matching non-wildcard hostname.
-	// * Characters in a matching hostname.
 	// * Characters in a matching path.
 	// * Header matches.
 	// * Query param matches.
@@ -158,9 +167,9 @@ type HTTPRouteRule struct {
 	// * The Route appearing first in alphabetical order by
 	//   "{namespace}/{name}".
 	//
-	// If ties still exist within the Route that has been given precedence,
-	// matching precedence MUST be granted to the first matching rule meeting
-	// the above criteria.
+	// If ties still exist within an HTTPRoute, matching precedence MUST be granted
+	// to the FIRST matching rule (in list order) with a match meeting the above
+	// criteria.
 	//
 	// When no rules matching a request have been successfully attached to the
 	// parent a request is coming from, a HTTP 404 status code MUST be returned.
@@ -183,8 +192,8 @@ type HTTPRouteRule struct {
 	// - Implementation-specific custom filters have no API guarantees across
 	//   implementations.
 	//
-	// Specifying a core filter multiple times has unspecified or custom
-	// conformance.
+	// Specifying a core filter multiple times has unspecified or
+	// implementation-specific conformance.
 	//
 	// All filters are expected to be compatible with each other except for the
 	// URLRewrite and RequestRedirect filters, which may not be combined. If an
@@ -201,27 +210,29 @@ type HTTPRouteRule struct {
 	// BackendRefs defines the backend(s) where matching requests should be
 	// sent.
 	//
-	// A 500 status code MUST be returned if there are no BackendRefs or filters
-	// specified that would result in a response being sent.
+	// Failure behavior here depends on how many BackendRefs are specified and
+	// how many are invalid.
 	//
-	// A BackendRef is considered invalid when it refers to:
+	// If *all* entries in BackendRefs are invalid, and there are also no filters
+	// specified in this route rule, *all* traffic which matches this rule MUST
+	// receive a 500 status code.
 	//
-	// * an unknown or unsupported kind of resource
-	// * a resource that does not exist
-	// * a resource in another namespace when the reference has not been
-	//   explicitly allowed by a ReferenceGrant (or equivalent concept).
+	// See the HTTPBackendRef definition for the rules about what makes a single
+	// HTTPBackendRef invalid.
 	//
-	// When a BackendRef is invalid, 500 status codes MUST be returned for
+	// When a HTTPBackendRef is invalid, 500 status codes MUST be returned for
 	// requests that would have otherwise been routed to an invalid backend. If
 	// multiple backends are specified, and some are invalid, the proportion of
 	// requests that would otherwise have been routed to an invalid backend
 	// MUST receive a 500 status code.
 	//
-	// When a BackendRef refers to a Service that has no ready endpoints, it is
-	// recommended to return a 503 status code.
+	// For example, if two backends are specified with equal weights, and one is
+	// invalid, 50 percent of traffic must receive a 500. Implementations may
+	// choose how that 50 percent is determined.
 	//
 	// Support: Core for Kubernetes Service
-	// Support: Custom for any other resource
+	//
+	// Support: Implementation-specific for any other resource
 	//
 	// Support for weight: Core
 	//
@@ -241,6 +252,13 @@ type HTTPRouteRule struct {
 //
 // - Must begin with the `/` character
 // - Must not contain consecutive `/` characters (e.g. `/foo///`, `//`).
+//
+// Note that values may be added to this enum, implementations
+// must ensure that unknown values will not cause a crash.
+//
+// Unknown values here must result in the implementation setting the
+// Accepted Condition for the Route to `status: False`, with a
+// Reason of `UnsupportedValue`.
 //
 // +kubebuilder:validation:Enum=Exact;PathPrefix;RegularExpression
 type PathMatchType string
@@ -264,8 +282,9 @@ const (
 	// Matches if the URL path matches the given regular expression with
 	// case sensitivity.
 	//
-	// Since `"RegularExpression"` has custom conformance, implementations
-	// can support POSIX, PCRE, RE2 or any other regular expression dialect.
+	// Since `"RegularExpression"` has implementation-specific conformance,
+	// implementations can support POSIX, PCRE, RE2 or any other regular expression
+	// dialect.
 	// Please read the implementation's documentation to determine the supported
 	// dialect.
 	PathMatchRegularExpression PathMatchType = "RegularExpression"
@@ -277,7 +296,7 @@ type HTTPPathMatch struct {
 	//
 	// Support: Core (Exact, PathPrefix)
 	//
-	// Support: Custom (RegularExpression)
+	// Support: Implementation-specific (RegularExpression)
 	//
 	// +optional
 	// +kubebuilder:default=PathPrefix
@@ -296,6 +315,13 @@ type HTTPPathMatch struct {
 //
 // * "Exact"
 // * "RegularExpression"
+//
+// Note that values may be added to this enum, implementations
+// must ensure that unknown values will not cause a crash.
+//
+// Unknown values here must result in the implementation setting the
+// Accepted Condition for the Route to `status: False`, with a
+// Reason of `UnsupportedValue`.
 //
 // +kubebuilder:validation:Enum=Exact;RegularExpression
 type HeaderMatchType string
@@ -331,12 +357,12 @@ type HTTPHeaderMatch struct {
 	//
 	// Support: Core (Exact)
 	//
-	// Support: Custom (RegularExpression)
+	// Support: Implementation-specific (RegularExpression)
 	//
-	// Since RegularExpression HeaderMatchType has custom conformance,
-	// implementations can support POSIX, PCRE or any other dialects of regular
-	// expressions. Please read the implementation's documentation to determine
-	// the supported dialect.
+	// Since RegularExpression HeaderMatchType has implementation-specific
+	// conformance, implementations can support POSIX, PCRE or any other dialects
+	// of regular expressions. Please read the implementation's documentation to
+	// determine the supported dialect.
 	//
 	// +optional
 	// +kubebuilder:default=Exact
@@ -371,6 +397,13 @@ type HTTPHeaderMatch struct {
 // * "Exact"
 // * "RegularExpression"
 //
+// Note that values may be added to this enum, implementations
+// must ensure that unknown values will not cause a crash.
+//
+// Unknown values here must result in the implementation setting the
+// Accepted Condition for the Route to `status: False`, with a
+// Reason of `UnsupportedValue`.
+//
 // +kubebuilder:validation:Enum=Exact;RegularExpression
 type QueryParamMatchType string
 
@@ -387,12 +420,12 @@ type HTTPQueryParamMatch struct {
 	//
 	// Support: Extended (Exact)
 	//
-	// Support: Custom (RegularExpression)
+	// Support: Implementation-specific (RegularExpression)
 	//
-	// Since RegularExpression QueryParamMatchType has custom conformance,
-	// implementations can support POSIX, PCRE or any other dialects of regular
-	// expressions. Please read the implementation's documentation to determine
-	// the supported dialect.
+	// Since RegularExpression QueryParamMatchType has Implementation-specific
+	// conformance, implementations can support POSIX, PCRE or any other
+	// dialects of regular expressions. Please read the implementation's
+	// documentation to determine the supported dialect.
 	//
 	// +optional
 	// +kubebuilder:default=Exact
@@ -401,6 +434,20 @@ type HTTPQueryParamMatch struct {
 	// Name is the name of the HTTP query param to be matched. This must be an
 	// exact string match. (See
 	// https://tools.ietf.org/html/rfc7230#section-2.7.3).
+	//
+	// If multiple entries specify equivalent query param names, only the first
+	// entry with an equivalent name MUST be considered for a match. Subsequent
+	// entries with an equivalent query param name MUST be ignored.
+	//
+	// If a query param is repeated in an HTTP request, the behavior is
+	// purposely left undefined, since different data planes have different
+	// capabilities. However, it is *recommended* that implementations should
+	// match against the first value of the param if the data plane supports it,
+	// as this behavior is expected in other load balancing contexts outside of
+	// the Gateway API.
+	//
+	// Users SHOULD NOT route traffic based on repeated query params to guard
+	// themselves against potential differences in the implementations.
 	//
 	// +kubebuilder:validation:MinLength=1
 	// +kubebuilder:validation:MaxLength=256
@@ -418,6 +465,14 @@ type HTTPQueryParamMatch struct {
 // [RFC 7231](https://datatracker.ietf.org/doc/html/rfc7231#section-4) and
 // [RFC 5789](https://datatracker.ietf.org/doc/html/rfc5789#section-2).
 // The value is expected in upper case.
+//
+// Note that values may be added to this enum, implementations
+// must ensure that unknown values will not cause a crash.
+//
+// Unknown values here must result in the implementation setting the
+// Accepted Condition for the Route to `status: False`, with a
+// Reason of `UnsupportedValue`.
+//
 // +kubebuilder:validation:Enum=GET;HEAD;POST;PUT;DELETE;CONNECT;OPTIONS;TRACE;PATCH
 type HTTPMethod string
 
@@ -470,6 +525,8 @@ type HTTPRouteMatch struct {
 	// values are ANDed together, meaning, a request must match all the
 	// specified query parameters to select the route.
 	//
+	// Support: Extended
+	//
 	// +listType=map
 	// +listMapKey=name
 	// +optional
@@ -504,7 +561,8 @@ type HTTPRouteFilter struct {
 	//   "Support: Extended" in this package, e.g. "RequestMirror". Implementers
 	//   are encouraged to support extended filters.
 	//
-	// - Custom: Filters that are defined and supported by specific vendors.
+	// - Implementation-specific: Filters that are defined and supported by
+	//   specific vendors.
 	//   In the future, filters showing convergence in behavior across multiple
 	//   implementations will be considered for inclusion in extended or core
 	//   conformance levels. Filter-specific configuration for such filters
@@ -518,9 +576,16 @@ type HTTPRouteFilter struct {
 	// MUST NOT be skipped. Instead, requests that would have been processed by
 	// that filter MUST receive a HTTP error response.
 	//
+	// Note that values may be added to this enum, implementations
+	// must ensure that unknown values will not cause a crash.
+	//
+	// Unknown values here must result in the implementation setting the
+	// Accepted Condition for the Route to `status: False`, with a
+	// Reason of `UnsupportedValue`.
+	//
 	// +unionDiscriminator
 	// +kubebuilder:validation:Enum=RequestHeaderModifier;RequestMirror;RequestRedirect;ExtensionRef
-	// <gateway:experimental:validation:Enum=RequestHeaderModifier;RequestMirror;RequestRedirect;URLRewrite;ExtensionRef>
+	// <gateway:experimental:validation:Enum=RequestHeaderModifier;ResponseHeaderModifier;RequestMirror;RequestRedirect;URLRewrite;ExtensionRef>
 	Type HTTPRouteFilterType `json:"type"`
 
 	// RequestHeaderModifier defines a schema for a filter that modifies request
@@ -529,7 +594,16 @@ type HTTPRouteFilter struct {
 	// Support: Core
 	//
 	// +optional
-	RequestHeaderModifier *HTTPRequestHeaderFilter `json:"requestHeaderModifier,omitempty"`
+	RequestHeaderModifier *HTTPHeaderFilter `json:"requestHeaderModifier,omitempty"`
+
+	// ResponseHeaderModifier defines a schema for a filter that modifies response
+	// headers.
+	//
+	// Support: Extended
+	//
+	// +optional
+	// <gateway:experimental>
+	ResponseHeaderModifier *HTTPHeaderFilter `json:"responseHeaderModifier,omitempty"`
 
 	// RequestMirror defines a schema for a filter that mirrors requests.
 	// Requests are sent to the specified destination, but responses from
@@ -549,6 +623,7 @@ type HTTPRouteFilter struct {
 	RequestRedirect *HTTPRequestRedirectFilter `json:"requestRedirect,omitempty"`
 
 	// URLRewrite defines a schema for a filter that modifies a request during forwarding.
+	//
 	// Support: Extended
 	//
 	// <gateway:experimental>
@@ -577,6 +652,15 @@ const (
 	//
 	// Support in HTTPBackendRef: Extended
 	HTTPRouteFilterRequestHeaderModifier HTTPRouteFilterType = "RequestHeaderModifier"
+
+	// HTTPRouteFilterResponseHeaderModifier can be used to add or remove an HTTP
+	// header from an HTTP response before it is sent to the client.
+	//
+	// Support in HTTPRouteRule: Extended
+	//
+	// Support in HTTPBackendRef: Extended
+	// <gateway:experimental>
+	HTTPRouteFilterResponseHeaderModifier HTTPRouteFilterType = "ResponseHeaderModifier"
 
 	// HTTPRouteFilterRequestRedirect can be used to redirect a request to
 	// another location. This filter can also be used for HTTP to HTTPS
@@ -612,9 +696,9 @@ const (
 	// HTTPRouteFilterExtensionRef should be used for configuring custom
 	// HTTP filters.
 	//
-	// Support in HTTPRouteRule: Custom
+	// Support in HTTPRouteRule: Implementation-specific
 	//
-	// Support in HTTPBackendRef: Custom
+	// Support in HTTPBackendRef: Implementation-specific
 	HTTPRouteFilterExtensionRef HTTPRouteFilterType = "ExtensionRef"
 )
 
@@ -637,9 +721,13 @@ type HTTPHeader struct {
 	Value string `json:"value"`
 }
 
-// HTTPRequestHeaderFilter defines configuration for the RequestHeaderModifier
-// filter.
-type HTTPRequestHeaderFilter struct {
+// HTTPHeaderFilter defines a filter that modifies the headers of an HTTP
+// request or response. Only one action for a given header name is permitted.
+// Filters specifying multiple actions of the same or different type for any one
+// header name are invalid and will be rejected by the webhook if installed.
+// Configuration to set or add multiple values for a header must use RFC 7230
+// header value formatting, separating each value with a comma.
+type HTTPHeaderFilter struct {
 	// Set overwrites the request with the given header (name, value)
 	// before the action.
 	//
@@ -673,12 +761,11 @@ type HTTPRequestHeaderFilter struct {
 	// Config:
 	//   add:
 	//   - name: "my-header"
-	//     value: "bar"
+	//     value: "bar,baz"
 	//
 	// Output:
 	//   GET /foo HTTP/1.1
-	//   my-header: foo
-	//   my-header: bar
+	//   my-header: foo,bar,baz
 	//
 	// +optional
 	// +listType=map
@@ -736,6 +823,13 @@ type HTTPPathModifier struct {
 	// Type defines the type of path modifier. Additional types may be
 	// added in a future release of the API.
 	//
+	// Note that values may be added to this enum, implementations
+	// must ensure that unknown values will not cause a crash.
+	//
+	// Unknown values here must result in the implementation setting the
+	// Accepted Condition for the Route to `status: False`, with a
+	// Reason of `UnsupportedValue`.
+	//
 	// <gateway:experimental>
 	// +kubebuilder:validation:Enum=ReplaceFullPath;ReplacePrefixMatch
 	Type HTTPPathModifierType `json:"type"`
@@ -767,9 +861,15 @@ type HTTPPathModifier struct {
 // HTTPRequestRedirect defines a filter that redirects a request. This filter
 // MUST NOT be used on the same Route rule as a HTTPURLRewrite filter.
 type HTTPRequestRedirectFilter struct {
-	// Scheme is the scheme to be used in the value of the `Location`
-	// header in the response.
-	// When empty, the scheme of the request is used.
+	// Scheme is the scheme to be used in the value of the `Location` header in
+	// the response. When empty, the scheme of the request is used.
+	//
+	// Note that values may be added to this enum, implementations
+	// must ensure that unknown values will not cause a crash.
+	//
+	// Unknown values here must result in the implementation setting the
+	// Accepted Condition for the Route to `status: False`, with a
+	// Reason of `UnsupportedValue`.
 	//
 	// Support: Extended
 	//
@@ -807,6 +907,13 @@ type HTTPRequestRedirectFilter struct {
 
 	// StatusCode is the HTTP status code to be used in response.
 	//
+	// Note that values may be added to this enum, implementations
+	// must ensure that unknown values will not cause a crash.
+	//
+	// Unknown values here must result in the implementation setting the
+	// Accepted Condition for the Route to `status: False`, with a
+	// Reason of `UnsupportedValue`.
+	//
 	// Support: Core
 	//
 	// +optional
@@ -819,8 +926,9 @@ type HTTPRequestRedirectFilter struct {
 // forwarding. At most one of these filters may be used on a Route rule. This
 // MUST NOT be used on the same Route rule as a HTTPRequestRedirect filter.
 //
-// <gateway:experimental>
 // Support: Extended
+//
+// <gateway:experimental>
 type HTTPURLRewriteFilter struct {
 	// Hostname is the value to be used to replace the Host header value during
 	// forwarding.
@@ -859,7 +967,8 @@ type HTTPRequestMirrorFilter struct {
 	// should be used to provide more detail about the problem.
 	//
 	// Support: Extended for Kubernetes Service
-	// Support: Custom for any other resource
+	//
+	// Support: Implementation-specific for any other resource
 	BackendRef BackendObjectReference `json:"backendRef"`
 }
 
@@ -867,21 +976,31 @@ type HTTPRequestMirrorFilter struct {
 type HTTPBackendRef struct {
 	// BackendRef is a reference to a backend to forward matched requests to.
 	//
-	// If the referent cannot be found, this HTTPBackendRef is invalid and must
-	// be dropped from the Gateway. The controller must ensure the
-	// "ResolvedRefs" condition on the Route is set to `status: False` and not
-	// configure this backend in the underlying implementation.
+	// A BackendRef can be invalid for the following reasons. In all cases, the
+	// implementation MUST ensure the `ResolvedRefs` Condition on the Route
+	// is set to `status: False`, with a Reason and Message that indicate
+	// what is the cause of the error.
 	//
-	// If there is a cross-namespace reference to an *existing* object
-	// that is not covered by a ReferenceGrant, the controller must ensure the
-	// "ResolvedRefs"  condition on the Route is set to `status: False`,
-	// with the "RefNotPermitted" reason and not configure this backend in the
-	// underlying implementation.
+	// A BackendRef is invalid if:
 	//
-	// In either error case, the Message of the `ResolvedRefs` Condition
-	// should be used to provide more detail about the problem.
+	// * It refers to an unknown or unsupported kind of resource. In this
+	//   case, the Reason must be set to `InvalidKind` and Message of the
+	//   Condition must explain which kind of resource is unknown or unsupported.
 	//
-	// Support: Custom
+	// * It refers to a resource that does not exist. In this case, the Reason must
+	//   be set to `BackendNotFound` and the Message of the Condition must explain
+	//   which resource does not exist.
+	//
+	// * It refers a resource in another namespace when the reference has not been
+	//   explicitly allowed by a ReferenceGrant (or equivalent concept). In this
+	//   case, the Reason must be set to `RefNotPermitted` and the Message of the
+	//   Condition must explain which cross-namespace reference is not allowed.
+	//
+	// Support: Core for Kubernetes Service
+	//
+	// Support: Implementation-specific for any other resource
+	//
+	// Support for weight: Core
 	//
 	// +optional
 	BackendRef `json:",inline"`
@@ -889,8 +1008,8 @@ type HTTPBackendRef struct {
 	// Filters defined at this level should be executed if and only if the
 	// request is being forwarded to the backend defined here.
 	//
-	// Support: Custom (For broader support of filters, use the Filters field
-	// in HTTPRouteRule.)
+	// Support: Implementation-specific (For broader support of filters, use the
+	// Filters field in HTTPRouteRule.)
 	//
 	// +optional
 	// +kubebuilder:validation:MaxItems=16

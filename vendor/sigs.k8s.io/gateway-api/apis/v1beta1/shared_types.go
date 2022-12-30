@@ -29,6 +29,9 @@ import (
 // be registered in the cluster for this reference to be valid.
 type ParentReference struct {
 	// Group is the group of the referent.
+	// When unspecified, "gateway.networking.k8s.io" is inferred.
+	// To set the core API group (such as for a "Service" kind referent),
+	// Group must be explicitly set to "" (empty string).
 	//
 	// Support: Core
 	//
@@ -39,14 +42,15 @@ type ParentReference struct {
 	// Kind is kind of the referent.
 	//
 	// Support: Core (Gateway)
-	// Support: Custom (Other Resources)
+	//
+	// Support: Implementation-specific (Other Resources)
 	//
 	// +kubebuilder:default=Gateway
 	// +optional
 	Kind *Kind `json:"kind,omitempty"`
 
-	// Namespace is the namespace of the referent. When unspecified (or empty
-	// string), this refers to the local namespace of the Route.
+	// Namespace is the namespace of the referent. When unspecified, this refers
+	// to the local namespace of the Route.
 	//
 	// Support: Core
 	//
@@ -197,6 +201,11 @@ const (
 	//
 	// * "NotAllowedByListeners"
 	// * "NoMatchingListenerHostname"
+	// * "UnsupportedValue"
+	//
+	// Possible reasons for this condition to be Unknown are:
+	//
+	// * "Pending"
 	//
 	// Controllers may raise this condition with other reasons,
 	// but should prefer to use the reasons listed above to improve
@@ -216,6 +225,20 @@ const (
 	// compatible Listeners whose Hostname matches the route
 	RouteReasonNoMatchingListenerHostname RouteConditionReason = "NoMatchingListenerHostname"
 
+	// This reason is used with the "Accepted" condition when there are
+	// no matching Parents. In the case of Gateways, this can occur when
+	// a Route ParentRef specifies a Port and/or SectionName that does not
+	// match any Listeners in the Gateway.
+	RouteReasonNoMatchingParent RouteConditionReason = "NoMatchingParent"
+
+	// This reason is used with the "Accepted" condition when a value for an Enum
+	// is not recognized.
+	RouteReasonUnsupportedValue RouteConditionReason = "UnsupportedValue"
+
+	// This reason is used with the "Accepted" when a controller has not yet
+	// reconciled the route.
+	RouteReasonPending RouteConditionReason = "Pending"
+
 	// This condition indicates whether the controller was able to resolve all
 	// the object references for the Route.
 	//
@@ -226,6 +249,8 @@ const (
 	// Possible reasons for this condition to be false are:
 	//
 	// * "RefNotPermitted"
+	// * "InvalidKind"
+	// * "BackendNotFound"
 	//
 	// Controllers may raise this condition with other reasons,
 	// but should prefer to use the reasons listed above to improve
@@ -241,6 +266,15 @@ const (
 	// another namespace, where the object in the other namespace does
 	// not have a ReferenceGrant explicitly allowing the reference.
 	RouteReasonRefNotPermitted RouteConditionReason = "RefNotPermitted"
+
+	// This reason is used with the "ResolvedRefs" condition when
+	// one of the Route's rules has a reference to an unknown or unsupported
+	// Group and/or Kind.
+	RouteReasonInvalidKind RouteConditionReason = "InvalidKind"
+
+	// This reason is used with the "ResolvedRefs" condition when one of the
+	// Route's rules has a reference to a resource that does not exist.
+	RouteReasonBackendNotFound RouteConditionReason = "BackendNotFound"
 )
 
 // RouteParentStatus describes the status of a route with respect to an
@@ -283,7 +317,7 @@ type RouteParentStatus struct {
 	//
 	// * The Route refers to a non-existent parent.
 	// * The Route is of a type that the controller does not support.
-	// * The Route is in a namespace the the controller does not have access to.
+	// * The Route is in a namespace the controller does not have access to.
 	//
 	// +listType=map
 	// +listMapKey=type
@@ -356,7 +390,7 @@ type PreciseHostname string
 // Valid values include:
 //
 // * "" - empty string implies core Kubernetes API group
-// * "networking.k8s.io"
+// * "gateway.networking.k8s.io"
 // * "foo.example.com"
 //
 // Invalid values include:
@@ -487,13 +521,16 @@ type AnnotationValue string
 //
 // Values `IPAddress` and `Hostname` have Extended support.
 //
-// All other values, including domain-prefixed values have Custom support, which
-// are used in implementation-specific behaviors. Support for additional
+// The `NamedAddress` value has been deprecated in favor of implementation
+// specific domain-prefixed strings.
+//
+// All other values, including domain-prefixed values have Implementation-specific support,
+// which are used in implementation-specific behaviors. Support for additional
 // predefined CamelCase identifiers may be added in future releases.
 //
 // +kubebuilder:validation:MinLength=1
 // +kubebuilder:validation:MaxLength=253
-// +kubebuilder:validation:Pattern=`^Hostname|IPAddress|[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*\/[A-Za-z0-9\/\-._~%!$&'()*+,;=:]+$`
+// +kubebuilder:validation:Pattern=`^Hostname|IPAddress|NamedAddress|[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*\/[A-Za-z0-9\/\-._~%!$&'()*+,;=:]+$`
 type AddressType string
 
 const (
@@ -516,4 +553,14 @@ const (
 	//
 	// Support: Extended
 	HostnameAddressType AddressType = "Hostname"
+
+	// A NamedAddress provides a way to reference a specific IP address by name.
+	// For example, this may be a name or other unique identifier that refers
+	// to a resource on a cloud provider such as a static IP.
+	//
+	// The `NamedAddress` type has been deprecated in favor of implementation
+	// specific domain-prefixed strings.
+	//
+	// Support: Implementation-specific
+	NamedAddressType AddressType = "NamedAddress"
 )
