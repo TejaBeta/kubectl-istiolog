@@ -50,6 +50,8 @@ message CNIConfig {
 
   google.protobuf.Value tag = 3;
 
+  string variant = 29;
+
   string image = 4;
 
   string pullPolicy = 5;
@@ -79,6 +81,12 @@ message CNIConfig {
   Resources resources = 17;
 
   google.protobuf.BoolValue privileged = 18;
+
+  // The Container seccompProfile
+  //
+  // See: https://kubernetes.io/docs/tutorials/security/seccomp/
+  google.protobuf.Struct seccompProfile = 19;
+
 }
 
 
@@ -283,6 +291,9 @@ message GlobalConfig {
   // Deprecated: replaced by the affinity k8s settings which allows architecture nodeAffinity configuration of this behavior.
   ArchConfig arch = 1 [deprecated=true];
 
+  // List of certSigners to allow "approve" action in the ClusterRole
+  repeated string certSigners = 68;
+
   string configRootNamespace = 50;
 
   // Controls whether the server-side validation is enabled.
@@ -392,6 +403,8 @@ message GlobalConfig {
   // Specifies the tag for the Istio docker images.
   google.protobuf.Value tag = 31;
 
+  string variant = 67;
+
   // Specifies the Configuration for each of the supported tracers.
   TracerConfig tracer = 33;
 
@@ -426,7 +439,7 @@ message GlobalConfig {
 
   // Controls whether one external istiod is enabled.
   google.protobuf.BoolValue externalIstiod = 62;
-  
+
   // Controls whether a remote cluster is the config cluster for an external istiod
   google.protobuf.BoolValue configCluster = 64;
 
@@ -438,7 +451,7 @@ message GlobalConfig {
   string caName = 65;
 
   google.protobuf.BoolValue autoscalingv2API = 66;
-  // The next available key is 67
+  // The next available key is 68
 }
 
 // Configuration for Security Token Service (STS) server.
@@ -706,6 +719,13 @@ message PilotConfig {
   string hub = 34;
 
   google.protobuf.Value tag = 35;
+
+  string variant = 39;
+
+  // The Container seccompProfile
+  //
+  // See: https://kubernetes.io/docs/tutorials/security/seccomp/
+  google.protobuf.Struct seccompProfile = 38;
 }
 
 // Controls legacy k8s ingress. Only one pilot profile should enable ingress support.
@@ -1113,6 +1133,7 @@ message BaseConfig {
   // For istioctl usage to disable istio config crds in base
   google.protobuf.BoolValue enableIstioConfigCRDs = 3;
 
+  google.protobuf.BoolValue validateGateway = 4;
 }
 
 message IstiodRemoteConfig {
