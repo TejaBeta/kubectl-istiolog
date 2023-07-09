@@ -17,9 +17,20 @@ package constants
 const (
 	// UnspecifiedIP constant for empty IP address
 	UnspecifiedIP = "0.0.0.0"
+	// UnspecifiedIPv6 constant for empty IPv6 address
+	UnspecifiedIPv6 = "::/0"
 
 	// AuthCertsPath is the path location for mTLS certificates
 	AuthCertsPath = "/etc/certs/"
+
+	// PilotWellKnownDNSCertPath is the path location for Pilot dns serving cert, often used with custom CA integrations
+	PilotWellKnownDNSCertPath   = "./var/run/secrets/istiod/tls/"
+	PilotWellKnownDNSCaCertPath = "./var/run/secrets/istiod/ca/"
+
+	DefaultPilotTLSCert                = PilotWellKnownDNSCertPath + "tls.crt"
+	DefaultPilotTLSKey                 = PilotWellKnownDNSCertPath + "tls.key"
+	DefaultPilotTLSCaCert              = PilotWellKnownDNSCaCertPath + "root-cert.pem"
+	DefaultPilotTLSCaCertAlternatePath = PilotWellKnownDNSCertPath + "ca.crt"
 
 	// CertChainFilename is mTLS chain file
 	CertChainFilename = "cert-chain.pem"
@@ -120,8 +131,9 @@ const (
 	// Label to skip config comparison.
 	AlwaysPushLabel = "internal.istio.io/always-push"
 
-	// InternalParentName declares the original resource of an internally-generate config. This is used by ingress and the gateway-api.
-	InternalParentName     = "internal.istio.io/parent"
+	// InternalParentNames declares the original resources of an internally-generate config. This is used by k8s gateway-api.
+	// It is a comma separated list. For example, "HTTPRoute/foo.default,HTTPRoute/bar.default"
+	InternalParentNames    = "internal.istio.io/parents"
 	InternalRouteSemantics = "internal.istio.io/route-semantics"
 	RouteSemanticsIngress  = "ingress"
 	RouteSemanticsGateway  = "gateway"
@@ -140,4 +152,27 @@ const (
 	// CertProviderNone does not create any certificates for the control plane. It is assumed that some external
 	// load balancer, such as an Istio Gateway, is terminating the TLS.
 	CertProviderNone = "none"
+
+	WaypointServiceAccount = "istio.io/for-service-account"
+
+	ManagedGatewayLabel               = "gateway.istio.io/managed"
+	ManagedGatewayController          = "istio.io/gateway-controller"
+	ManagedGatewayControllerLabel     = "istio.io-gateway-controller"
+	ManagedGatewayMeshControllerLabel = "istio.io-mesh-controller"
+	ManagedGatewayMeshController      = "istio.io/mesh-controller"
+
+	WaypointGatewayClassName = "istio-waypoint"
+	GatewayNameLabel         = "istio.io/gateway-name"
+
+	// DataplaneMode namespace label for determining ambient mesh behavior
+	DataplaneMode        = "istio.io/dataplane-mode"
+	DataplaneModeAmbient = "ambient"
+
+	// AmbientRedirection specifies whether a pod has ambient redirection (to ztunnel) configured.
+	AmbientRedirection = "ambient.istio.io/redirection"
+	// AmbientRedirectionEnabled indicates redirection is configured. This is set by the CNI when it
+	// actually sets up redirection, rather than by the user.
+	AmbientRedirectionEnabled = "enabled"
+	// AmbientRedirectionDisabled is an opt-out, configured by user.
+	AmbientRedirectionDisabled = "disabled"
 )

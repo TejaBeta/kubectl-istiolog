@@ -50,6 +50,8 @@ message CNIConfig {
 
   google.protobuf.Value tag = 3;
 
+  string variant = 29;
+
   string image = 4;
 
   string pullPolicy = 5;
@@ -62,6 +64,8 @@ message CNIConfig {
 
   repeated string excludeNamespaces = 9;
 
+  google.protobuf.Struct affinity = 20;
+
   google.protobuf.Struct podAnnotations = 10 [deprecated=true];
 
   string psp_cluster_role = 11;
@@ -72,19 +76,30 @@ message CNIConfig {
 
   google.protobuf.BoolValue chained = 14;
 
-  CNITaintConfig taint  = 15;
-
   ResourceQuotas resource_quotas = 16;
 
   Resources resources = 17;
 
   google.protobuf.BoolValue privileged = 18;
+
+  // The Container seccompProfile
+  //
+  // See: https://kubernetes.io/docs/tutorials/security/seccomp/
+  google.protobuf.Struct seccompProfile = 19;
+
+  CNIAmbientConfig ambient = 21;
+
+  string provider = 22;
+
+  // K8s rolling update strategy
+  IntOrString rollingMaxUnavailable = 23;
 }
 
-
-message CNITaintConfig {
-  // Controls whether taint behavior is enabled.
+message CNIAmbientConfig {
+  // Controls whether ambient redirection is enabled
   google.protobuf.BoolValue enabled = 1;
+  string redirectMode = 2;
+  string configDir = 3;
 }
 
 message CNIRepairConfig {
@@ -168,6 +183,8 @@ message EgressGatewayConfig {
   //
   // See https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/
   CPUTargetUtilizationConfig cpu = 5 [deprecated=true];
+
+  google.protobuf.BoolValue customService = 6;
 
   // Controls whether an egress gateway is enabled.
   google.protobuf.BoolValue enabled = 7;
@@ -283,6 +300,9 @@ message GlobalConfig {
   // Deprecated: replaced by the affinity k8s settings which allows architecture nodeAffinity configuration of this behavior.
   ArchConfig arch = 1 [deprecated=true];
 
+  // List of certSigners to allow "approve" action in the ClusterRole
+  repeated string certSigners = 68;
+
   string configRootNamespace = 50;
 
   // Controls whether the server-side validation is enabled.
@@ -392,6 +412,8 @@ message GlobalConfig {
   // Specifies the tag for the Istio docker images.
   google.protobuf.Value tag = 31;
 
+  string variant = 67;
+
   // Specifies the Configuration for each of the supported tracers.
   TracerConfig tracer = 33;
 
@@ -426,7 +448,7 @@ message GlobalConfig {
 
   // Controls whether one external istiod is enabled.
   google.protobuf.BoolValue externalIstiod = 62;
-  
+
   // Controls whether a remote cluster is the config cluster for an external istiod
   google.protobuf.BoolValue configCluster = 64;
 
@@ -438,7 +460,12 @@ message GlobalConfig {
   string caName = 65;
 
   google.protobuf.BoolValue autoscalingv2API = 66;
-  // The next available key is 67
+
+  // Platform in which Istio is deployed. Possible values are: "openshift" and "gcp"
+  // An empty value means it is a vanilla Kubernetes distribution, therefore no special
+  // treatment will be considered.
+  string platform = 69;
+  // The next available key is 70
 }
 
 // Configuration for Security Token Service (STS) server.
@@ -605,6 +632,9 @@ message PilotConfig {
   // Maximum number of replicas in the HorizontalPodAutoscaler for Pilot.
   uint32 autoscaleMax = 4;
 
+  // See https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/#configurable-scaling-behavior
+  google.protobuf.Struct autoscaleBehavior = 40;
+
   // Number of replicas in the Pilot Deployment.
   uint32 replicaCount = 5 [deprecated=true];
 
@@ -706,6 +736,21 @@ message PilotConfig {
   string hub = 34;
 
   google.protobuf.Value tag = 35;
+
+  string variant = 39;
+
+  // The Container seccompProfile
+  //
+  // See: https://kubernetes.io/docs/tutorials/security/seccomp/
+  google.protobuf.Struct seccompProfile = 38;
+
+  repeated google.protobuf.Struct topologySpreadConstraints = 41;
+
+  repeated google.protobuf.Struct extraContainerArgs = 42;
+
+  repeated google.protobuf.Struct volumeMounts = 49;
+
+  repeated google.protobuf.Struct volumes = 51;
 }
 
 // Controls legacy k8s ingress. Only one pilot profile should enable ingress support.
@@ -768,7 +813,7 @@ message TelemetryV2MetadataExchangeConfig {
   google.protobuf.BoolValue wasmEnabled = 2;
 }
 
-// Conrols telemetry v2 prometheus settings.
+// Controls telemetry v2 prometheus settings.
 message TelemetryV2PrometheusConfig {
   // Controls whether stats envoyfilter would be enabled or not.
   google.protobuf.BoolValue enabled = 1;
@@ -791,7 +836,7 @@ message TelemetryV2PrometheusConfig {
   ConfigOverride config_override = 3;
 }
 
-// Conrols telemetry v2 stackdriver settings.
+// TelemetryV2StackDriverConfig controls telemetry v2 stackdriver settings.
 message TelemetryV2StackDriverConfig {
 // Types of Access logs to export.
   enum AccessLogging {
@@ -822,7 +867,7 @@ message TelemetryV2StackDriverConfig {
   AccessLogging inboundAccessLogging = 8;
 }
 
-// Conrols telemetry v2 access log policy filter settings.
+// TelemetryV2AccessLogPolicyFilterConfig controls telemetry v2 access log policy filter settings.
 message TelemetryV2AccessLogPolicyFilterConfig {
   google.protobuf.BoolValue enabled = 1;
 
@@ -1113,6 +1158,7 @@ message BaseConfig {
   // For istioctl usage to disable istio config crds in base
   google.protobuf.BoolValue enableIstioConfigCRDs = 3;
 
+  google.protobuf.BoolValue validateGateway = 4;
 }
 
 message IstiodRemoteConfig {
@@ -1130,6 +1176,8 @@ message Values {
   GlobalConfig global = 6;
 
   PilotConfig pilot = 10;
+
+  google.protobuf.Value ztunnel = 41;
 
   // Controls whether telemetry is exported for Pilot.
   TelemetryConfig telemetry = 23;

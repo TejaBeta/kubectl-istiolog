@@ -176,6 +176,7 @@ import "type/v1beta1/selector.proto";
 // metadata:
 //   name: configure-client-mtls-dr-with-workloadselector
 // spec:
+//   host: example.com
 //   workloadSelector:
 //     matchLabels:
 //       app: ratings
@@ -197,6 +198,7 @@ import "type/v1beta1/selector.proto";
 // metadata:
 //   name: configure-client-mtls-dr-with-workloadselector
 // spec:
+//   host: example.com
 //   workloadSelector:
 //     matchLabels:
 //       app: ratings
@@ -557,10 +559,37 @@ message LoadBalancerSettings {
 
   // Consistent Hash-based load balancing can be used to provide soft
   // session affinity based on HTTP headers, cookies or other
-  // properties. The affinity to a particular destination host will be
+  // properties. The affinity to a particular destination host may be
   // lost when one or more hosts are added/removed from the destination
   // service.
+  //
+  // Note: consistent hashing is less reliable at maintaining affinity than common
+  // "sticky sessions" implementations, which often encode a specific destination in
+  // a cookie, ensuring affinity is maintained as long as the backend remains.
+  // With consistent hash, the guarantees are weaker; any host addition or removal can
+  // break affinity for `1/backends` requests.
+  //
+  // Warning: consistent hashing depends on each proxy having a consistent view of endpoints.
+  // This is not the case when locality load balancing is enabled. Locality load balancing
+  // and consistent hash will only work together when all proxies are in the same locality,
+  // or a high level load balancer handles locality affinity.
   message ConsistentHashLB {
+
+    message RingHash {
+      // The minimum number of virtual nodes to use for the hash
+      // ring. Defaults to 1024. Larger ring sizes result in more granular
+      // load distributions. If the number of hosts in the load balancing
+      // pool is larger than the ring size, each host will be assigned a
+      // single virtual node.
+      uint64 minimum_ring_size = 1;
+    };
+  
+    message MagLev {
+      // The table size for Maglev hashing. This helps in controlling the 
+      // disruption when the backend hosts change.
+      // Increasing the table size reduces the amount of disruption. 
+      uint64 table_size = 1;
+    };
     // Describes a HTTP cookie that will be used as the hash key for the
     // Consistent Hash load balancer. If the cookie is not present, it will
     // be generated.
@@ -589,12 +618,20 @@ message LoadBalancerSettings {
       string http_query_parameter_name = 5;
     };
 
-    // The minimum number of virtual nodes to use for the hash
-    // ring. Defaults to 1024. Larger ring sizes result in more granular
-    // load distributions. If the number of hosts in the load balancing
-    // pool is larger than the ring size, each host will be assigned a
-    // single virtual node.
-    uint64 minimum_ring_size = 4;
+        // The hash algorithm to use. 
+        // Please refer to https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/upstream/load_balancing/load_balancers#ring-hash
+        // and https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/upstream/load_balancing/load_balancers#maglev for
+        // considerations on choosing an algorithm.
+        // Defaults to RingHash if not specified.
+        oneof hash_algorithm {
+          // The ring/modulo hash load balancer implements consistent hashing to backend hosts.
+          RingHash ring_hash = 6;
+          // The Maglev load balancer implements consistent hashing to backend hosts. 
+          MagLev maglev = 7;
+        };
+
+    // Deprecated. Use RingHash instead.
+    uint64 minimum_ring_size = 4 [deprecated=true];
   };
 
   // (-- TODO: Enable Subset load balancing after moving to v2 API Also
@@ -615,6 +652,9 @@ message LoadBalancerSettings {
   // remains in warmup mode starting from its creation time for the duration of this window and
   // Istio progressively increases amount of traffic for that endpoint instead of sending proportional amount of traffic.
   // This should be enabled for services that require warm up time to serve full production load with reasonable latency.
+  // Please note that this is most effective when few new endpoints come up like scale event in Kubernetes. When all the 
+  // endpoints are relatively new like new deployment, this is not very effective as all endpoints end up getting same 
+  // amount of requests.
   // Currently this is only supported for ROUND_ROBIN and LEAST_REQUEST load balancers.
   google.protobuf.Duration warmup_duration_secs = 4;
 }
@@ -707,10 +747,15 @@ message ConnectionPoolSettings {
 
   // Settings applicable to HTTP1.1/HTTP2/GRPC connections.
   message HTTPSettings {
-    // Maximum number of pending HTTP requests to a destination. Default 2^32-1.
+    // Maximum number of requests that will be queued while waiting for
+    // a ready connection pool connection. Default 2^32-1.
+    // Refer to https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/upstream/circuit_breaking
+    // under which conditions a new connection is created for HTTP2.
+    // Please note that this is applicable to both HTTP/1.1 and HTTP2.
     int32 http1_max_pending_requests = 1;
 
-    // Maximum number of requests to a backend. Default 2^32-1.
+    // Maximum number of active requests to a destination. Default 2^32-1.
+    // Please note that this is applicable to both HTTP/1.1 and HTTP2.
     int32 http2_max_requests = 2;
 
     // Maximum number of requests per connection to a backend. Setting this
@@ -1048,14 +1093,17 @@ message ClientTLSSettings {
   string ca_certificates = 4;
 
   // The name of the secret that holds the TLS certs for the
-  // client including the CA certificates. Secret must exist in the
-  // same namespace with the proxy using the certificates.
-  // The secret (of type `generic`)should contain the
-  // following keys and values: `key: <privateKey>`,
-  // `cert: <clientCert>`, `cacert: <CACertificate>`.
+  // client including the CA certificates. This secret must exist in
+  // the namespace of the proxy using the certificates.
+  // An Opaque secret should contain the following keys and values:
+  // `key: <privateKey>`, `cert: <clientCert>`, `cacert: <CACertificate>`,
+  // `crl: <certificateRevocationList>`
   // Here CACertificate is used to verify the server certificate.
-  // Secret of type tls for client certificates along with
-  // ca.crt key for CA certificates is also supported.
+  // For mutual TLS, `cacert: <CACertificate>` can be provided in the
+  // same secret or a separate secret named `<secret>-cacert`.
+  // A TLS secret for client certificates with an additional
+  // `ca.crt` key for CA certificates and `ca.crl` key for
+  // certificate revocation list(CRL) is also supported.
   // Only one of client certificates and CA certificate
   // or credentialName can be specified.
   //
@@ -1069,7 +1117,10 @@ message ClientTLSSettings {
   // certificate. If specified, the proxy will verify that the server
   // certificate's subject alt name matches one of the specified values.
   // If specified, this list overrides the value of subject_alt_names
-  // from the ServiceEntry.
+  // from the ServiceEntry. If unspecified, automatic validation of upstream
+  // presented certificate for new upstream connections will be done based on the
+  // downstream HTTP host/authority header, provided `VERIFY_CERTIFICATE_AT_CLIENT`
+  // and `ENABLE_AUTO_SNI` environmental variables are set to `true`.
   repeated string subject_alt_names = 5;
 
   // SNI string to present to the server during TLS handshake.
@@ -1191,12 +1242,22 @@ message LocalityLoadBalancerSetting{
 
     // failoverPriority is an ordered list of labels used to sort endpoints to do priority based load balancing.
     // This is to support traffic failover across different groups of endpoints.
-    // Suppose there are total N labels specified:
+    // Two kinds of labels can be specified:
+    // - Specify only label keys `[key1, key2, key3]`, istio would compare the label values of client with endpoints.
+    //   Suppose there are total N label keys `[key1, key2, key3, ...keyN]` specified:
     //
-    // 1. Endpoints matching all N labels with the client proxy have priority P(0) i.e. the highest priority.
-    // 2. Endpoints matching the first N-1 labels with the client proxy have priority P(1) i.e. second highest priority.
-    // 3. By extension of this logic, endpoints matching only the first label with the client proxy has priority P(N-1) i.e. second lowest priority.
-    // 4. All the other endpoints have priority P(N) i.e. lowest priority.
+    //   1. Endpoints matching all N labels with the client proxy have priority P(0) i.e. the highest priority.
+    //   2. Endpoints matching the first N-1 labels with the client proxy have priority P(1) i.e. second highest priority.
+    //   3. By extension of this logic, endpoints matching only the first label with the client proxy has priority P(N-1) i.e. second lowest priority.
+    //   4. All the other endpoints have priority P(N) i.e. lowest priority.
+    //
+    // - Specify labels with key and value `[key1=value1, key2=value2, key3=value3]`, istio would compare the labels with endpoints.
+    //   Suppose there are total N labels `[key1=value1, key2=value2, key3=value3, ...keyN=valueN]` specified:
+    //
+    //   1. Endpoints matching all N labels have priority P(0) i.e. the highest priority.
+    //   2. Endpoints matching the first N-1 labels have priority P(1) i.e. second highest priority.
+    //   3. By extension of this logic, endpoints matching only the first label has priority P(N-1) i.e. second lowest priority.
+    //   4. All the other endpoints have priority P(N) i.e. lowest priority.
     //
     // Note: For a label to be considered for match, the previous labels must match, i.e. nth label would be considered matched only if first n-1 labels match.
     //
@@ -1224,6 +1285,17 @@ message LocalityLoadBalancerSetting{
     // 3. endpoints have same [network, region] label but different [zone] label with the client proxy have the third highest priority.
     // 4. endpoints have same [network] but different [region] labels with the client proxy have the fourth highest priority.
     // 5. all the other endpoints have the same lowest priority.
+    //
+    // Suppose a service associated endpoints reside in multi clusters, the below example represents:
+    // 1. endpoints in `clusterA` and has `version=v1` label have P(0) priority.
+    // 2. endpoints not in `clusterA` but has `version=v1` label have P(1) priority.
+    // 2. all the other endpoints have P(2) priority.
+    //
+    // ```yaml
+    // failoverPriority:
+    // - "version=v1"
+    // - "topology.istio.io/cluster=clusterA"
+    // ```
     //
     // Optional: only one of distribute, failover or failoverPriority can be set.
     // And it should be used together with `OutlierDetection` to detect unhealthy endpoints, otherwise has no effect.

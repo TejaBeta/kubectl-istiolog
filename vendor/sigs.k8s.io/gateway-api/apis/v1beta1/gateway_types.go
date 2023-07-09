@@ -23,10 +23,11 @@ import (
 // +genclient
 // +kubebuilder:object:root=true
 // +kubebuilder:resource:categories=gateway-api,shortName=gtw
+// +kubebuilder:storageversion
 // +kubebuilder:subresource:status
 // +kubebuilder:printcolumn:name="Class",type=string,JSONPath=`.spec.gatewayClassName`
 // +kubebuilder:printcolumn:name="Address",type=string,JSONPath=`.status.addresses[*].value`
-// +kubebuilder:printcolumn:name="Ready",type=string,JSONPath=`.status.conditions[?(@.type=="Ready")].status`
+// +kubebuilder:printcolumn:name="Programmed",type=string,JSONPath=`.status.conditions[?(@.type=="Programmed")].status`
 // +kubebuilder:printcolumn:name="Age",type=date,JSONPath=`.metadata.creationTimestamp`
 
 // Gateway represents an instance of a service-traffic handling infrastructure
@@ -40,7 +41,7 @@ type Gateway struct {
 
 	// Status defines the current state of Gateway.
 	//
-	// +kubebuilder:default={conditions: {{type: "Scheduled", status: "Unknown", reason:"NotReconciled", message:"Waiting for controller", lastTransitionTime: "1970-01-01T00:00:00Z"}}}
+	// +kubebuilder:default={conditions: {{type: "Accepted", status: "Unknown", reason:"Pending", message:"Waiting for controller", lastTransitionTime: "1970-01-01T00:00:00Z"},{type: "Programmed", status: "Unknown", reason:"Pending", message:"Waiting for controller", lastTransitionTime: "1970-01-01T00:00:00Z"}}}
 	Status GatewayStatus `json:"status,omitempty"`
 }
 
@@ -236,18 +237,18 @@ type Listener struct {
 }
 
 // ProtocolType defines the application protocol accepted by a Listener.
-// Implementations are not required to accept all the defined protocols.
-// If an implementation does not support a specified protocol, it
-// should raise a "Detached" condition for the affected Listener with
-// a reason of "UnsupportedProtocol".
+// Implementations are not required to accept all the defined protocols. If an
+// implementation does not support a specified protocol, it MUST set the
+// "Accepted" condition to False for the affected Listener with a reason of
+// "UnsupportedProtocol".
 //
 // Core ProtocolType values are listed in the table below.
 //
 // Implementations can define their own protocols if a core ProtocolType does not
 // exist. Such definitions must use prefixed name, such as
 // `mycompany.com/my-custom-protocol`. Un-prefixed names are reserved for core
-// protocols. Any protocol defined by implementations will fall under custom
-// conformance.
+// protocols. Any protocol defined by implementations will fall under
+// Implementation-specific conformance.
 //
 // Valid values include:
 //
@@ -316,7 +317,7 @@ type GatewayTLSConfig struct {
 	// is a ReferenceGrant in the target namespace that allows the certificate
 	// to be attached. If a ReferenceGrant does not allow this reference, the
 	// "ResolvedRefs" condition MUST be set to False for this listener with the
-	// "InvalidCertificateRef" reason.
+	// "RefNotPermitted" reason.
 	//
 	// This field is required to have at least one element when the mode is set
 	// to "Terminate" (default) and is optional otherwise.
@@ -486,14 +487,15 @@ type GatewayStatus struct {
 	//
 	// Known condition types are:
 	//
-	// * "Scheduled"
+	// * "Accepted"
+	// * "Programmed"
 	// * "Ready"
 	//
 	// +optional
 	// +listType=map
 	// +listMapKey=type
 	// +kubebuilder:validation:MaxItems=8
-	// +kubebuilder:default={{type: "Scheduled", status: "Unknown", reason:"NotReconciled", message:"Waiting for controller", lastTransitionTime: "1970-01-01T00:00:00Z"}}
+	// +kubebuilder:default={{type: "Accepted", status: "Unknown", reason:"Pending", message:"Waiting for controller", lastTransitionTime: "1970-01-01T00:00:00Z"},{type: "Programmed", status: "Unknown", reason:"Pending", message:"Waiting for controller", lastTransitionTime: "1970-01-01T00:00:00Z"}}
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
 
 	// Listeners provide status for each unique listener port defined in the Spec.
@@ -515,83 +517,143 @@ type GatewayConditionType string
 type GatewayConditionReason string
 
 const (
-	// This condition is true when the controller managing the
-	// Gateway has scheduled the Gateway to the underlying network
-	// infrastructure.
+	// This condition indicates whether a Gateway has generated some
+	// configuration that is assumed to be ready soon in the underlying data
+	// plane.
 	//
-	// Possible reasons for this condition to be true are:
+	// It is a positive-polarity summary condition, and so should always be
+	// present on the resource with ObservedGeneration set.
 	//
-	// * "Scheduled"
+	// It should be set to Unknown if the controller performs updates to the
+	// status before it has all the information it needs to be able to determine
+	// if the condition is true.
+	//
+	// Possible reasons for this condition to be True are:
+	//
+	// * "Programmed"
 	//
 	// Possible reasons for this condition to be False are:
 	//
-	// * "NotReconciled"
+	// * "Invalid"
+	// * "Pending"
 	// * "NoResources"
+	// * "AddressNotAssigned"
+	//
+	// Possible reasons for this condition to be Unknown are:
+	//
+	// * "Pending"
 	//
 	// Controllers may raise this condition with other reasons,
 	// but should prefer to use the reasons listed above to improve
 	// interoperability.
-	GatewayConditionScheduled GatewayConditionType = "Scheduled"
+	GatewayConditionProgrammed GatewayConditionType = "Programmed"
 
-	// This reason is used with the "Scheduled" condition when the condition is
+	// This reason is used with the "Programmed" condition when the condition is
 	// true.
-	GatewayReasonScheduled GatewayConditionReason = "Scheduled"
+	GatewayReasonProgrammed GatewayConditionReason = "Programmed"
 
-	// This reason is used with the "Scheduled" condition when no controller has
-	// reconciled the Gateway.
-	GatewayReasonNotReconciled GatewayConditionReason = "NotReconciled"
+	// This reason is used with the "Programmed" and "Accepted" conditions when the Gateway is
+	// syntactically or semantically invalid.
+	GatewayReasonInvalid GatewayConditionReason = "Invalid"
 
-	// This reason is used with the "Scheduled" condition when the
+	// This reason is used with the "Programmed" condition when the
 	// Gateway is not scheduled because insufficient infrastructure
 	// resources are available.
 	GatewayReasonNoResources GatewayConditionReason = "NoResources"
+
+	// This reason is used with the "Programmed" condition when none of the requested
+	// addresses have been assigned to the Gateway. This reason can be used to
+	// express a range of circumstances, including (but not limited to) IPAM
+	// address exhaustion, address not yet allocated, or a named address not being found.
+	GatewayReasonAddressNotAssigned GatewayConditionReason = "AddressNotAssigned"
 )
 
 const (
-	// This condition is true when the Gateway is expected to be able
-	// to serve traffic. Note that this does not indicate that the
-	// Gateway configuration is current or even complete (e.g. the
-	// controller may still not have reconciled the latest version,
-	// or some parts of the configuration could be missing).
+	// This condition is true when the controller managing the Gateway is
+	// syntactically and semantically valid enough to produce some configuration
+	// in the underlying data plane. This does not indicate whether or not the
+	// configuration has been propagated to the data plane.
 	//
-	// If both the "ListenersNotValid" and "ListenersNotReady"
-	// reasons are true, the Gateway controller should prefer the
-	// "ListenersNotValid" reason.
+	// Possible reasons for this condition to be True are:
 	//
-	// Possible reasons for this condition to be true are:
-	//
-	// * "Ready"
+	// * "Accepted"
+	// * "ListenersNotValid"
 	//
 	// Possible reasons for this condition to be False are:
 	//
+	// * "Invalid"
+	// * "NotReconciled"
+	// * "UnsupportedAddress"
 	// * "ListenersNotValid"
-	// * "ListenersNotReady"
-	// * "AddressNotAssigned"
+	//
+	// Possible reasons for this condition to be Unknown are:
+	//
+	// * "Pending"
 	//
 	// Controllers may raise this condition with other reasons,
 	// but should prefer to use the reasons listed above to improve
 	// interoperability.
-	GatewayConditionReady GatewayConditionType = "Ready"
+	GatewayConditionAccepted GatewayConditionType = "Accepted"
 
-	// This reason is used with the "Ready" condition when the condition is
-	// true.
-	GatewayReasonReady GatewayConditionReason = "Ready"
+	// This reason is used with the "Accepted" condition when the condition is
+	// True.
+	GatewayReasonAccepted GatewayConditionReason = "Accepted"
 
-	// This reason is used with the "Ready" condition when one or
+	// This reason is used with the "Accepted" condition when one or
 	// more Listeners have an invalid or unsupported configuration
 	// and cannot be configured on the Gateway.
+	// This can be the reason when "Accepted" is "True" or "False", depending on whether
+	// the listener being invalid causes the entire Gateway to not be accepted.
 	GatewayReasonListenersNotValid GatewayConditionReason = "ListenersNotValid"
 
-	// This reason is used with the "Ready" condition when one or
-	// more Listeners are not ready to serve traffic.
-	GatewayReasonListenersNotReady GatewayConditionReason = "ListenersNotReady"
+	// This reason is used with the "Accepted" and "Programmed"
+	// conditions when the status is "Unknown" and no controller has reconciled
+	// the Gateway.
+	GatewayReasonPending GatewayConditionReason = "Pending"
 
-	// This reason is used with the "Ready" condition when none of the requested
-	// addresses have been assigned to the Gateway. This reason can be used to
-	// express a range of circumstances, including (but not limited to) IPAM
-	// address exhaustion, invalid or unsupported address requests, or a named
-	// address not being found.
-	GatewayReasonAddressNotAssigned GatewayConditionReason = "AddressNotAssigned"
+	// This reason is used with the "Accepted" condition when the Gateway could not be configured
+	// because the requested address is not supported. This reason could be used in a number of
+	// instances, including:
+	//
+	// * The address is already in use.
+	// * The type of address is not supported by the implementation.
+	GatewaReasonUnsupportedAddress GatewayConditionReason = "UnsupportedAddress"
+)
+
+const (
+	// Deprecated: use "Accepted" instead.
+	GatewayConditionScheduled GatewayConditionType = "Scheduled"
+
+	// This reason is used with the "Scheduled" condition when the condition is
+	// True.
+	//
+	// Deprecated: use the "Accepted" condition with reason "Accepted" instead.
+	GatewayReasonScheduled GatewayConditionReason = "Scheduled"
+
+	// Deprecated: Use "Pending" instead.
+	GatewayReasonNotReconciled GatewayConditionReason = "NotReconciled"
+)
+
+const (
+	// "Ready" is a condition type reserved for future use. It should not be used by implementations.
+	//
+	// If used in the future, "Ready" will represent the final state where all configuration is confirmed good
+	// _and has completely propagated to the data plane_. That is, it is a _guarantee_ that, as soon as something
+	// sees the Condition as `true`, then connections will be correctly routed _immediately_.
+	//
+	// This is a very strong guarantee, and to date no implementation has satisfied it enough to implement it.
+	// This reservation can be discussed in the future if necessary.
+	//
+	// Note: This condition is not really "deprecated", but rather "reserved"; however, deprecated triggers Go linters
+	// to alert about usage.
+	// Deprecated: Ready is reserved for future use
+	GatewayConditionReady GatewayConditionType = "Ready"
+
+	// Deprecated: Ready is reserved for future use
+	GatewayReasonReady GatewayConditionReason = "Ready"
+
+	// Deprecated: Ready is reserved for future use
+	GatewayReasonListenersNotReady GatewayConditionReason = "ListenersNotReady"
 )
 
 // ListenerStatus is the status associated with a Listener.
@@ -670,32 +732,50 @@ const (
 )
 
 const (
-	// This condition indicates that, even though the listener is
-	// syntactically and semantically valid, the controller is not able
-	// to configure it on the underlying Gateway infrastructure.
+	// This condition indicates that the listener is syntactically and
+	// semantically valid, and that all features used in the listener's spec are
+	// supported.
 	//
-	// A Listener is specified as a logical requirement, but needs to be
-	// configured on a network endpoint (i.e. address and port) by a
-	// controller. The controller may be unable to attach the Listener
-	// if it specifies an unsupported requirement, or prerequisite
-	// resources are not available.
+	// In general, a Listener will be marked as Accepted when the supplied
+	// configuration will generate at least some data plane configuration.
 	//
-	// Possible reasons for this condition to be true are:
+	// For example, a Listener with an unsupported protocol will never generate
+	// any data plane config, and so will have Accepted set to `false.`
+	// Conversely, a Listener that does not have any Routes will be able to
+	// generate data plane config, and so will have Accepted set to `true`.
 	//
-	// * "PortUnavailable"
-	// * "UnsupportedProtocol"
-	// * "UnsupportedAddress"
+	// Possible reasons for this condition to be True are:
+	//
+	// * "Accepted"
 	//
 	// Possible reasons for this condition to be False are:
 	//
-	// * "Attached"
+	// * "PortUnavailable"
+	// * "UnsupportedProtocol"
+	//
+	// Possible reasons for this condition to be Unknown are:
+	//
+	// * "Pending"
 	//
 	// Controllers may raise this condition with other reasons,
 	// but should prefer to use the reasons listed above to improve
 	// interoperability.
+	ListenerConditionAccepted ListenerConditionType = "Accepted"
+
+	// Deprecated: use "Accepted" instead.
 	ListenerConditionDetached ListenerConditionType = "Detached"
 
-	// This reason is used with the "Detached" condition when the Listener
+	// This reason is used with the "Accepted" condition when the condition is
+	// True.
+	ListenerReasonAccepted ListenerConditionReason = "Accepted"
+
+	// This reason is used with the "Detached" condition when the condition is
+	// False.
+	//
+	// Deprecated: use the "Accepted" condition with reason "Accepted" instead.
+	ListenerReasonAttached ListenerConditionReason = "Attached"
+
+	// This reason is used with the "Accepted" condition when the Listener
 	// requests a port that cannot be used on the Gateway. This reason could be
 	// used in a number of instances, including:
 	//
@@ -703,22 +783,10 @@ const (
 	// * The port is not supported by the implementation.
 	ListenerReasonPortUnavailable ListenerConditionReason = "PortUnavailable"
 
-	// This reason is used with the "Detached" condition when the
+	// This reason is used with the "Accepted" condition when the
 	// Listener could not be attached to be Gateway because its
 	// protocol type is not supported.
 	ListenerReasonUnsupportedProtocol ListenerConditionReason = "UnsupportedProtocol"
-
-	// This reason is used with the "Detached" condition when the Listener could
-	// not be attached to the Gateway because the requested address is not
-	// supported. This reason could be used in a number of instances, including:
-	//
-	// * The address is already in use.
-	// * The type of address is not supported by the implementation.
-	ListenerReasonUnsupportedAddress ListenerConditionReason = "UnsupportedAddress"
-
-	// This reason is used with the "Detached" condition when the condition is
-	// False.
-	ListenerReasonAttached ListenerConditionReason = "Attached"
 )
 
 const (
@@ -746,48 +814,86 @@ const (
 
 	// This reason is used with the "ResolvedRefs" condition when the
 	// Listener has a TLS configuration with at least one TLS CertificateRef
-	// that is invalid or cannot be resolved.
+	// that is invalid or does not exist.
+	// A CertificateRef is considered invalid when it refers to a nonexistent
+	// or unsupported resource or kind, or when the data within that resource
+	// is malformed.
+	// This reason must be used only when the reference is allowed, either by
+	// referencing an object in the same namespace as the Gateway, or when
+	// a cross-namespace reference has been explicitly allowed by a ReferenceGrant.
+	// If the reference is not allowed, the reason RefNotPermitted must be used
+	// instead.
 	ListenerReasonInvalidCertificateRef ListenerConditionReason = "InvalidCertificateRef"
 
 	// This reason is used with the "ResolvedRefs" condition when an invalid or
 	// unsupported Route kind is specified by the Listener.
 	ListenerReasonInvalidRouteKinds ListenerConditionReason = "InvalidRouteKinds"
 
-	// This reason is used with the "ResolvedRefs" condition when
-	// one of the Listener's Routes has a BackendRef to an object in
-	// another namespace, where the object in the other namespace does
-	// not have a ReferenceGrant explicitly allowing the reference.
+	// This reason is used with the "ResolvedRefs" condition when the
+	// Listener has a TLS configuration that references an object in another
+	// namespace, where the object in the other namespace does not have a
+	// ReferenceGrant explicitly allowing the reference.
 	ListenerReasonRefNotPermitted ListenerConditionReason = "RefNotPermitted"
 )
 
 const (
-	// This condition indicates whether the Listener has been
-	// configured on the Gateway.
+	// This condition indicates whether a Listener has generated some
+	// configuration that will soon be ready in the underlying data plane.
 	//
-	// Possible reasons for this condition to be true are:
+	// It is a positive-polarity summary condition, and so should always be
+	// present on the resource with ObservedGeneration set.
 	//
-	// * "Ready"
+	// It should be set to Unknown if the controller performs updates to the
+	// status before it has all the information it needs to be able to determine
+	// if the condition is true.
+	//
+	// Possible reasons for this condition to be True are:
+	//
+	// * "Programmed"
 	//
 	// Possible reasons for this condition to be False are:
 	//
 	// * "Invalid"
 	// * "Pending"
 	//
+	// Possible reasons for this condition to be Unknown are:
+	//
+	// * "Pending"
+	//
 	// Controllers may raise this condition with other reasons,
 	// but should prefer to use the reasons listed above to improve
 	// interoperability.
-	ListenerConditionReady ListenerConditionType = "Ready"
+	ListenerConditionProgrammed ListenerConditionType = "Programmed"
 
-	// This reason is used with the "Ready" condition when the condition is
+	// This reason is used with the "Programmed" condition when the condition is
 	// true.
-	ListenerReasonReady ListenerConditionReason = "Ready"
+	ListenerReasonProgrammed ListenerConditionReason = "Programmed"
 
-	// This reason is used with the "Ready" condition when the
+	// This reason is used with the "Ready" and "Programmed" conditions when the
 	// Listener is syntactically or semantically invalid.
 	ListenerReasonInvalid ListenerConditionReason = "Invalid"
 
-	// This reason is used with the "Ready" condition when the
-	// Listener is not yet not online and ready to accept client
-	// traffic.
+	// This reason is used with the "Accepted", "Ready" and "Programmed"
+	// conditions when the Listener is either not yet reconciled or not yet not
+	// online and ready to accept client traffic.
 	ListenerReasonPending ListenerConditionReason = "Pending"
+)
+
+const (
+	// "Ready" is a condition type reserved for future use. It should not be used by implementations.
+	// Note: This condition is not really "deprecated", but rather "reserved"; however, deprecated triggers Go linters
+	// to alert about usage.
+	//
+	// If used in the future, "Ready" will represent the final state where all configuration is confirmed good
+	// _and has completely propagated to the data plane_. That is, it is a _guarantee_ that, as soon as something
+	// sees the Condition as `true`, then connections will be correctly routed _immediately_.
+	//
+	// This is a very strong guarantee, and to date no implementation has satisfied it enough to implement it.
+	// This reservation can be discussed in the future if necessary.
+	//
+	// Deprecated: Ready is reserved for future use
+	ListenerConditionReady ListenerConditionType = "Ready"
+
+	// Deprecated: Ready is reserved for future use
+	ListenerReasonReady ListenerConditionReason = "Ready"
 )
