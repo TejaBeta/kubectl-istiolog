@@ -17,7 +17,7 @@
 package v1alpha1
 
 import (
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	operatorv1alpha1 "istio.io/api/operator/v1alpha1"
 )
@@ -30,29 +30,28 @@ import (
 // Because the spec is a customization API, specifying an empty IstioOperatorSpec results in a default Istio
 // component values.
 //
-// ```yaml
-// apiVersion: install.istio.io/v1alpha1
-// kind: IstioOperator
-// spec:
-//   profile: default
-//   hub: gcr.io/istio-testing
-//   tag: latest
-//   revision: 1-8-0
-//   meshConfig:
-//     accessLogFile: /dev/stdout
-//     enableTracing: true
-//   components:
-//     egressGateways:
-//     - name: istio-egressgateway
-//       enabled: true
-// ```
+//	apiVersion: install.istio.io/v1alpha1
+//	kind: IstioOperator
+//	spec:
+//	  profile: default
+//	  hub: gcr.io/istio-testing
+//	  tag: latest
+//	  revision: 1-8-0
+//	  meshConfig:
+//	    accessLogFile: /dev/stdout
+//	    enableTracing: true
+//	  components:
+//	    egressGateways:
+//	    - name: istio-egressgateway
+//	      enabled: true
+//
 // +kubetype-gen
 // +kubetype-gen:groupVersion=install.istio.io/v1alpha1
 // +k8s:deepcopy-gen=true
 type IstioOperator struct {
-	v1.TypeMeta `json:",inline"`
+	metav1.TypeMeta `json:",inline"`
 	// +optional
-	v1.ObjectMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
+	metav1.ObjectMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
 
 	// Spec defines the implementation of this definition.
 	// +optional
@@ -65,8 +64,8 @@ type IstioOperator struct {
 
 // IstioOperatorSpecList is a collection of IstioOperatorSpecs.
 type IstioOperatorList struct {
-	v1.TypeMeta `json:",inline"`
+	metav1.TypeMeta `json:",inline"`
 	// +optional
-	v1.ListMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
-	Items       []IstioOperator `json:"items" protobuf:"bytes,2,rep,name=items"`
+	metav1.ListMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
+	Items           []IstioOperator `json:"items" protobuf:"bytes,2,rep,name=items"`
 }

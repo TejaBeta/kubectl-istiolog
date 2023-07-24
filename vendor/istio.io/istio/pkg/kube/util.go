@@ -23,19 +23,20 @@ import (
 	"regexp"
 	"strings"
 
-	kubeApiCore "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/client-go/kubernetes"
-
-	//  allow out of cluster authentication
-	_ "k8s.io/client-go/plugin/pkg/client/auth"
+	_ "k8s.io/client-go/plugin/pkg/client/auth" //  allow out of cluster authentication
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 
-	istioversion "istio.io/pkg/version"
+	"istio.io/istio/pilot/pkg/config/kube/crd"
+	"istio.io/istio/pilot/pkg/features"
+	"istio.io/istio/pkg/config"
+	istioversion "istio.io/istio/pkg/version"
 )
 
 var cronJobNameRegexp = regexp.MustCompile(`(.+)-\d{8,10}$`)
@@ -137,7 +138,7 @@ func IstioUserAgent() string {
 // This function is idempotent.
 func SetRestDefaults(config *rest.Config) *rest.Config {
 	if config.GroupVersion == nil || config.GroupVersion.Empty() {
-		config.GroupVersion = &kubeApiCore.SchemeGroupVersion
+		config.GroupVersion = &corev1.SchemeGroupVersion
 	}
 	if len(config.APIPath) == 0 {
 		if len(config.GroupVersion.Group) == 0 {
@@ -147,7 +148,16 @@ func SetRestDefaults(config *rest.Config) *rest.Config {
 		}
 	}
 	if len(config.ContentType) == 0 {
-		config.ContentType = runtime.ContentTypeJSON
+		if features.KubernetesClientContentType == "json" {
+			config.ContentType = runtime.ContentTypeJSON
+		} else {
+			// Prefer to accept protobuf, but send JSON. This is due to some types (CRDs)
+			// not accepting protobuf.
+			// If we end up writing many core types in the future we may want to set ContentType to
+			// ContentTypeProtobuf only for the core client.
+			config.AcceptContentTypes = runtime.ContentTypeProtobuf + "," + runtime.ContentTypeJSON
+			config.ContentType = runtime.ContentTypeJSON
+		}
 	}
 	if config.NegotiatedSerializer == nil {
 		// This codec factory ensures the resources are not converted. Therefore, resources
@@ -164,11 +174,11 @@ func SetRestDefaults(config *rest.Config) *rest.Config {
 
 // CheckPodReadyOrComplete returns nil if the given pod and all of its containers are ready or terminated
 // successfully.
-func CheckPodReadyOrComplete(pod *kubeApiCore.Pod) error {
+func CheckPodReadyOrComplete(pod *corev1.Pod) error {
 	switch pod.Status.Phase {
-	case kubeApiCore.PodSucceeded:
+	case corev1.PodSucceeded:
 		return nil
-	case kubeApiCore.PodRunning:
+	case corev1.PodRunning:
 		return CheckPodReady(pod)
 	default:
 		return fmt.Errorf("%s", pod.Status.Phase)
@@ -176,10 +186,15 @@ func CheckPodReadyOrComplete(pod *kubeApiCore.Pod) error {
 }
 
 // CheckPodReady returns nil if the given pod and all of its containers are ready.
-func CheckPodReady(pod *kubeApiCore.Pod) error {
+func CheckPodReady(pod *corev1.Pod) error {
 	switch pod.Status.Phase {
-	case kubeApiCore.PodRunning:
+	case corev1.PodRunning:
 		// Wait until all containers are ready.
+		for _, containerStatus := range pod.Status.InitContainerStatuses {
+			if !containerStatus.Ready {
+				return fmt.Errorf("init container not ready: '%s'", containerStatus.Name)
+			}
+		}
 		for _, containerStatus := range pod.Status.ContainerStatuses {
 			if !containerStatus.Ready {
 				return fmt.Errorf("container not ready: '%s'", containerStatus.Name)
@@ -187,7 +202,7 @@ func CheckPodReady(pod *kubeApiCore.Pod) error {
 		}
 		if len(pod.Status.Conditions) > 0 {
 			for _, condition := range pod.Status.Conditions {
-				if condition.Type == kubeApiCore.PodReady && condition.Status != kubeApiCore.ConditionTrue {
+				if condition.Type == corev1.PodReady && condition.Status != corev1.ConditionTrue {
 					return fmt.Errorf("pod not ready, condition message: %v", condition.Message)
 				}
 			}
@@ -199,7 +214,7 @@ func CheckPodReady(pod *kubeApiCore.Pod) error {
 }
 
 // GetDeployMetaFromPod heuristically derives deployment metadata from the pod spec.
-func GetDeployMetaFromPod(pod *kubeApiCore.Pod) (metav1.ObjectMeta, metav1.TypeMeta) {
+func GetDeployMetaFromPod(pod *corev1.Pod) (metav1.ObjectMeta, metav1.TypeMeta) {
 	if pod == nil {
 		return metav1.ObjectMeta{}, metav1.TypeMeta{}
 	}
@@ -294,7 +309,7 @@ func HTTPConfigReader(req *http.Request) ([]byte, error) {
 
 // StripUnusedFields is the transform function for shared informers,
 // it removes unused fields from objects before they are stored in the cache to save memory.
-func StripUnusedFields(obj interface{}) (interface{}, error) {
+func StripUnusedFields(obj any) (any, error) {
 	t, ok := obj.(metav1.ObjectMetaAccessor)
 	if !ok {
 		// shouldn't happen
@@ -302,5 +317,94 @@ func StripUnusedFields(obj interface{}) (interface{}, error) {
 	}
 	// ManagedFields is large and we never use it
 	t.GetObjectMeta().SetManagedFields(nil)
+	return obj, nil
+}
+
+// StripNodeUnusedFields is the transform function for shared node informers,
+// it removes unused fields from objects before they are stored in the cache to save memory.
+func StripNodeUnusedFields(obj any) (any, error) {
+	t, ok := obj.(metav1.ObjectMetaAccessor)
+	if !ok {
+		// shouldn't happen
+		return obj, nil
+	}
+	// ManagedFields is large and we never use it
+	t.GetObjectMeta().SetManagedFields(nil)
+	// Annotation is never used
+	t.GetObjectMeta().SetAnnotations(nil)
+	// OwnerReference is never used
+	t.GetObjectMeta().SetOwnerReferences(nil)
+	// only node labels and addressed are useful
+	if node := obj.(*corev1.Node); node != nil {
+		node.Status.Allocatable = nil
+		node.Status.Capacity = nil
+		node.Status.Images = nil
+		node.Status.Conditions = nil
+	}
+
+	return obj, nil
+}
+
+// StripPodUnusedFields is the transform function for shared pod informers,
+// it removes unused fields from objects before they are stored in the cache to save memory.
+func StripPodUnusedFields(obj any) (any, error) {
+	t, ok := obj.(metav1.ObjectMetaAccessor)
+	if !ok {
+		// shouldn't happen
+		return obj, nil
+	}
+	// ManagedFields is large and we never use it
+	t.GetObjectMeta().SetManagedFields(nil)
+	// only container ports can be used
+	if pod := obj.(*corev1.Pod); pod != nil {
+		containers := []corev1.Container{}
+		for _, c := range pod.Spec.Containers {
+			if len(c.Ports) > 0 {
+				containers = append(containers, corev1.Container{
+					Ports: c.Ports,
+				})
+			}
+		}
+		oldSpec := pod.Spec
+		newSpec := corev1.PodSpec{
+			Containers:         containers,
+			ServiceAccountName: oldSpec.ServiceAccountName,
+			NodeName:           oldSpec.NodeName,
+			HostNetwork:        oldSpec.HostNetwork,
+			Hostname:           oldSpec.Hostname,
+			Subdomain:          oldSpec.Subdomain,
+		}
+		pod.Spec = newSpec
+		pod.Status.InitContainerStatuses = nil
+		pod.Status.ContainerStatuses = nil
+	}
+
+	return obj, nil
+}
+
+func SlowConvertKindsToRuntimeObjects(in []crd.IstioKind) ([]runtime.Object, error) {
+	res := make([]runtime.Object, 0, len(in))
+	for _, o := range in {
+		r, err := SlowConvertToRuntimeObject(&o)
+		if err != nil {
+			return nil, err
+		}
+		res = append(res, r)
+	}
+	return res, nil
+}
+
+// SlowConvertToRuntimeObject converts an IstioKind to a runtime.Object.
+// As the name implies, it is not efficient.
+func SlowConvertToRuntimeObject(in *crd.IstioKind) (runtime.Object, error) {
+	by, err := config.ToJSON(in)
+	if err != nil {
+		return nil, err
+	}
+	gvk := in.GetObjectKind().GroupVersionKind()
+	obj, _, err := IstioCodec.UniversalDeserializer().Decode(by, &gvk, nil)
+	if err != nil {
+		return nil, err
+	}
 	return obj, nil
 }

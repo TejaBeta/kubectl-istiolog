@@ -28,6 +28,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	conversion "k8s.io/apimachinery/pkg/conversion"
 	runtime "k8s.io/apimachinery/pkg/runtime"
+	field "k8s.io/apimachinery/pkg/util/validation/field"
 )
 
 func init() {
@@ -1258,6 +1259,9 @@ func Convert_apiextensions_ServiceReference_To_v1_ServiceReference(in *apiextens
 func autoConvert_v1_ValidationRule_To_apiextensions_ValidationRule(in *ValidationRule, out *apiextensions.ValidationRule, s conversion.Scope) error {
 	out.Rule = in.Rule
 	out.Message = in.Message
+	out.MessageExpression = in.MessageExpression
+	out.Reason = (*field.ErrorType)(unsafe.Pointer(in.Reason))
+	out.FieldPath = in.FieldPath
 	return nil
 }
 
@@ -1269,6 +1273,9 @@ func Convert_v1_ValidationRule_To_apiextensions_ValidationRule(in *ValidationRul
 func autoConvert_apiextensions_ValidationRule_To_v1_ValidationRule(in *apiextensions.ValidationRule, out *ValidationRule, s conversion.Scope) error {
 	out.Rule = in.Rule
 	out.Message = in.Message
+	out.MessageExpression = in.MessageExpression
+	out.Reason = (*field.ErrorType)(unsafe.Pointer(in.Reason))
+	out.FieldPath = in.FieldPath
 	return nil
 }
 

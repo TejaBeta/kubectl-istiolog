@@ -139,11 +139,11 @@ func (opts *options) isPodExists(podName string) error {
 	return fmt.Errorf("%v Pod doesn't exist", podName)
 }
 
-func newKubeClientWithRevision(kubeconfig, configContext string, revision string) (kube.ExtendedClient, error) {
-	return kube.NewExtendedClient(kube.BuildClientCmd(kubeconfig, configContext), revision)
+func newKubeClientWithRevision(kubeconfig, configContext string, revision string) (kube.CLIClient, error) {
+	return kube.NewCLIClient(kube.BuildClientCmd(kubeconfig, configContext), revision)
 }
 
-func newKubeClient(kubeconfig, configContext string) (kube.ExtendedClient, error) {
+func newKubeClient(kubeconfig, configContext string) (kube.CLIClient, error) {
 	return newKubeClientWithRevision(kubeconfig, configContext, "")
 }
 

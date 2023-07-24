@@ -253,8 +253,8 @@ message VirtualService {
   repeated string gateways = 2;
 
   // An ordered list of route rules for HTTP traffic. HTTP routes will be
-  // applied to platform service ports named 'http-*'/'http2-*'/'grpc-*', gateway
-  // ports with protocol HTTP/HTTP2/GRPC/ TLS-terminated-HTTPS and service
+  // applied to platform service ports using HTTP/HTTP2/GRPC protocols, gateway
+  // ports with protocol HTTP/HTTP2/GRPC/TLS-terminated-HTTPS and service
   // entry ports using HTTP/HTTP2/GRPC protocols.  The first rule matching
   // an incoming request is used.
   repeated HTTPRoute http = 3;
@@ -1004,7 +1004,9 @@ message TCPRoute {
 // {{</tabset>}}
 //
 // HTTPMatchRequest CANNOT be empty.
-// **Note:** No regex string match can be set when delegate VirtualService is specified.
+// **Note:**
+// 1. If a root VirtualService have matched any property (path, header etc.) by regex, delegate VirtualServices should not have any other matches on the same property.
+// 2. If a delegate VirtualService have matched any property (path, header etc.) by regex, root VirtualServices should not have any other matches on the same property.
 message HTTPMatchRequest {
   // The name assigned to a match. The match's name will be
   // concatenated with the parent route's name and will be logged in
@@ -1068,7 +1070,14 @@ message HTTPMatchRequest {
   //
   // - `regex: "value"` for RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
   //
-  // If the value is empty and only the name of header is specfied, presence of the header is checked.
+  // If the value is empty and only the name of header is specified, presence of the header is checked.
+  // To provide an empty value, use `{}`, for example:
+  //
+  // ```
+  //  - match:
+  //    - headers:
+  //        myheader: {}
+  // ```
   // **Note:** The keys `uri`, `scheme`, `method`, and `authority` will be ignored.
   map<string, StringMatch> headers = 5;
 
@@ -1098,11 +1107,12 @@ message HTTPMatchRequest {
   // - For a query parameter like "?key", the map key would be "key" and the
   //   string match could be defined as `exact: ""`.
   //
+  // - For a query parameter like "?key=abc" or "?key=abx", the map key would be "key" and the
+  //   string match could be defined as `prefix: "ab"`.
+  //
   // - For a query parameter like "?key=123", the map key would be "key" and the
   //   string match could be defined as `regex: "\d+$"`. Note that this
   //   configuration will only match values like "123" but not "a123" or "123a".
-  //
-  // **Note:** `prefix` matching is currently not supported.
   map<string, StringMatch> query_params = 9;
 
   // Flag to specify whether the URI matching should be case-insensitive.
@@ -1122,7 +1132,10 @@ message HTTPMatchRequest {
 
   // The human readable prefix to use when emitting statistics for this route.
   // The statistics are generated with prefix route.<stat_prefix>.
-  // This should be set for highly critical routes that one wishes to get “per-route” statistics on.
+  // This should be set for highly critical routes that one wishes to get "per-route" statistics on.
+  // This prefix is only for proxy-level statistics (envoy_*) and not service-level (istio_*) statistics.
+  // Refer to https://www.envoyproxy.io/docs/envoy/latest/api-v3/config/route/v3/route_components.proto#envoy-v3-api-field-config-route-v3-route-stat-prefix 
+  // for statistics that are generated when this is configured.
   string stat_prefix = 14;
 }
 
@@ -1568,7 +1581,7 @@ message HTTPRedirect {
 //     headers:
 //       response:
 //         set:
-//           content-type: "appliation/json"
+//           content-type: "application/json"
 //   ...
 // ```
 // {{</tab>}}
@@ -1678,6 +1691,27 @@ message HTTPRewrite {
 
   // rewrite the Authority/Host header with this value.
   string authority = 2;
+
+  // rewrite the path portion of the URI with the specified regex.
+  RegexRewrite uri_regex_rewrite = 3;
+}
+
+message RegexRewrite {
+  // RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
+  string match = 1;
+
+  // The string that should replace into matching portions of original URI. 
+  // Capture groups in the pattern can be referenced in the new URI.
+  // Examples:
+  //
+  // Example 1: rewrite with capture groups
+  // Path pattern "/service/update/v1/api" with match "^/service/([^/]+)(/.*)$" and
+  // rewrite string of "/customprefix/\2/\1" would transform into "/customprefix/v1/api/update".
+  // 
+  // Example 2: case insensitive rewrite
+  // Path pattern "/aaa/XxX/bbb" with match "(?i)/xxx/" and a rewrite string of /yyy/ would do a 
+  // case-insensitive match and transform the path to "/aaa/yyy/bbb".
+  string rewrite = 2;
 }
 
 // Describes how to match a given string in HTTP headers. Match is
@@ -1946,7 +1980,7 @@ message HTTPFaultInjection {
   //
   // The _fixedDelay_ field is used to indicate the amount of delay in seconds.
   // The optional _percentage_ field can be used to only delay a certain
-  // percentage of requests. If left unspecified, all request will be delayed.
+  // percentage of requests. If left unspecified, no request will be delayed.
   message Delay {
     // Percentage of requests on which the delay will be injected (0-100).
     // Use of integer `percent` value is deprecated. Use the double `percentage`
@@ -1963,6 +1997,7 @@ message HTTPFaultInjection {
     }
 
     // Percentage of requests on which the delay will be injected.
+    // If left unspecified, no request will be delayed.
     Percent percentage = 5;
   }
 
@@ -2018,7 +2053,7 @@ message HTTPFaultInjection {
   //
   // The _httpStatus_ field is used to indicate the HTTP status code to
   // return to the caller. The optional _percentage_ field can be used to only
-  // abort a certain percentage of requests. If not specified, all requests are
+  // abort a certain percentage of requests. If not specified, no request will be
   // aborted.
   message Abort {
     reserved 1;
@@ -2039,6 +2074,7 @@ message HTTPFaultInjection {
     }
 
     // Percentage of requests to be aborted with the error code provided.
+    // If not specified, no request will be aborted.
     Percent percentage = 5;
   }
 }

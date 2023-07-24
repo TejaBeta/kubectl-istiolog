@@ -22,7 +22,7 @@ import (
 	"sync"
 	"testing"
 
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/log"
 )
 
 var (
@@ -37,13 +37,20 @@ var (
 type Failer interface {
 	Fail()
 	FailNow()
-	Fatal(args ...interface{})
-	Fatalf(format string, args ...interface{})
-	Log(args ...interface{})
-	Logf(format string, args ...interface{})
+	Fatal(args ...any)
+	Fatalf(format string, args ...any)
+	Log(args ...any)
+	Logf(format string, args ...any)
 	TempDir() string
 	Helper()
 	Cleanup(func())
+	Skip(args ...any)
+}
+
+// Fuzzer abstracts *testing.F
+type Fuzzer interface {
+	Fuzz(ff any)
+	Add(args ...any)
 }
 
 // errorWrapper is a Failer that can be used to just extract an `error`. This allows mixing
@@ -89,7 +96,7 @@ func (e *errorWrapper) FailNow() {
 	e.Fatal("fail now called")
 }
 
-func (e *errorWrapper) Fatal(args ...interface{}) {
+func (e *errorWrapper) Fatal(args ...any) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	if e.failed == nil {
@@ -98,11 +105,15 @@ func (e *errorWrapper) Fatal(args ...interface{}) {
 	runtime.Goexit()
 }
 
-func (e *errorWrapper) Fatalf(format string, args ...interface{}) {
+func (e *errorWrapper) Fatalf(format string, args ...any) {
 	e.Fatal(fmt.Sprintf(format, args...))
 }
 
 func (e *errorWrapper) Helper() {
+}
+
+func (e *errorWrapper) Skip(args ...any) {
+	e.Fatal(args...)
 }
 
 func (e *errorWrapper) Cleanup(f func()) {
@@ -119,14 +130,12 @@ func (e *errorWrapper) Cleanup(f func()) {
 	}
 }
 
-func (e *errorWrapper) Log(args ...interface{}) {
-	log.Info(args...)
+func (e *errorWrapper) Log(args ...any) {
+	log.Info(fmt.Sprint(args...))
 }
 
-func (e *errorWrapper) Logf(format string, args ...interface{}) {
-	ag := []interface{}{format}
-	ag = append(ag, args...)
-	log.Infof(ag...)
+func (e *errorWrapper) Logf(format string, args ...any) {
+	log.Infof(format, args...)
 }
 
 func (e *errorWrapper) TempDir() string {
