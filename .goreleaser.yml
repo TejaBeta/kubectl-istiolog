@@ -17,9 +17,10 @@ builds:
       - CGO_ENABLED=0
 archives:
   - id: kubectl-istiolog
-    name_template: "{{ .ProjectName }}_{{ .Tag }}_{{ .Os }}_{{ .Arch }}{{ if .Arm }}v{{ .Arm }}{{ end }}"
+    name_template: >-
+      {{ .ProjectName }}_
+      {{ .Tag }}_
+      {{ .Os }}_
+      {{- if eq .Arch "amd64" }}x86_64
+      {{- else }}{{ .Arch }}{{ end }}
     format: tar.gz
-    replacements:
-      amd64: x86_64
-      darwin: Darwin
-      linux: Linux
