@@ -804,7 +804,7 @@ istio.io/client-go/pkg/clientset/versioned/typed/security/v1beta1
 istio.io/client-go/pkg/clientset/versioned/typed/security/v1beta1/fake
 istio.io/client-go/pkg/clientset/versioned/typed/telemetry/v1alpha1
 istio.io/client-go/pkg/clientset/versioned/typed/telemetry/v1alpha1/fake
-# istio.io/istio v0.0.0-20230725164143-f0996f67d68b
+# istio.io/istio v0.0.0-20230726140242-77b8944bdcb0
 ## explicit; go 1.20
 istio.io/istio/operator/pkg/apis
 istio.io/istio/operator/pkg/apis/istio/v1alpha1
