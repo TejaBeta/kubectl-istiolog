@@ -6,9 +6,9 @@ require (
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/cobra v1.7.0
 	istio.io/istio v0.0.0-20230727152044-997a89aaef7e
-	k8s.io/api v0.28.0-beta.0
-	k8s.io/apimachinery v0.28.0-beta.0
-	k8s.io/client-go v0.28.0-beta.0
+	k8s.io/api v0.28.0-rc.0
+	k8s.io/apimachinery v0.28.0-rc.0
+	k8s.io/client-go v0.28.0-rc.0
 )
 
 require (
