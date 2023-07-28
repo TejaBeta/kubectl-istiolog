@@ -5,7 +5,7 @@ go 1.20
 require (
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/cobra v1.7.0
-	istio.io/istio v0.0.0-20230727163244-b6e650de6c62
+	istio.io/istio v0.0.0-20230728030947-8f378324c05a
 	k8s.io/api v0.28.0-rc.0
 	k8s.io/apimachinery v0.28.0-rc.0
 	k8s.io/client-go v0.28.0-rc.0
