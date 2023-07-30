@@ -5,7 +5,7 @@ go 1.20
 require (
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/cobra v1.7.0
-	istio.io/istio v0.0.0-20230728030947-8f378324c05a
+	istio.io/istio v0.0.0-20230730121607-54c7dd733a1e
 	k8s.io/api v0.28.0-rc.0
 	k8s.io/apimachinery v0.28.0-rc.0
 	k8s.io/client-go v0.28.0-rc.0
@@ -23,7 +23,7 @@ require (
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.2.0 // indirect
 	github.com/emicklei/go-restful/v3 v3.10.2 // indirect
-	github.com/envoyproxy/go-control-plane v0.11.2-0.20230714173708-c934c2bfce23 // indirect
+	github.com/envoyproxy/go-control-plane v0.11.2-0.20230726084335-b501c94cb61e // indirect
 	github.com/envoyproxy/protoc-gen-validate v1.0.2 // indirect
 	github.com/evanphx/json-patch v5.6.0+incompatible // indirect
 	github.com/go-logr/logr v1.2.4 // indirect
