@@ -96,6 +96,8 @@ github.com/envoyproxy/go-control-plane v0.9.0/go.mod h1:YTl/9mNaCwkRvm6d1a2C3ymF
 github.com/envoyproxy/go-control-plane v0.9.1-0.20191026205805-5f8ba28d4473/go.mod h1:YTl/9mNaCwkRvm6d1a2C3ymFceY/DCBVvsKhRF0iEA4=
 github.com/envoyproxy/go-control-plane v0.11.2-0.20230714173708-c934c2bfce23 h1:v2dRx/8SE/MFCxthW13/T/s6hYusI0yeqezalTVVbak=
 github.com/envoyproxy/go-control-plane v0.11.2-0.20230714173708-c934c2bfce23/go.mod h1:GxGqnjWzl1Gz8WfAfMJSfhvsi4EPZayRb25nLHDWXyA=
+github.com/envoyproxy/go-control-plane v0.11.2-0.20230726084335-b501c94cb61e h1:HXKPsHR2TRMWMdbCqwWsWzNqml/+oMQO3zm5LhhoYOo=
+github.com/envoyproxy/go-control-plane v0.11.2-0.20230726084335-b501c94cb61e/go.mod h1:djL+W7LURiPM8Szxc5/47R6qMRulOSkfsDLO1CaGUNM=
 github.com/envoyproxy/protoc-gen-validate v0.1.0/go.mod h1:iSmxcyjqTsJpI2R4NaDN7+kN2VEUnK/pcBlmesArF7c=
 github.com/envoyproxy/protoc-gen-validate v1.0.2 h1:QkIBuU5k+x7/QXPvPPnWXWlCdaBFApVqftFV6k087DA=
 github.com/envoyproxy/protoc-gen-validate v1.0.2/go.mod h1:GpiZQP3dDbg4JouG/NNS7QWXpgx6x8QiMKdmN72jogE=
@@ -760,6 +762,8 @@ istio.io/istio v0.0.0-20230727163244-b6e650de6c62 h1:VOuISL4oTuMSFMetAXZka/lxqMF
 istio.io/istio v0.0.0-20230727163244-b6e650de6c62/go.mod h1:vxrPN4NDSpiH1ESs5PO5B8L4yrVLEN6ioAGNc2+06DA=
 istio.io/istio v0.0.0-20230728030947-8f378324c05a h1:XztCcP2NK6JwhWYKYPmoOInCX+Kes+i8cPSrLvFAVxk=
 istio.io/istio v0.0.0-20230728030947-8f378324c05a/go.mod h1:vxrPN4NDSpiH1ESs5PO5B8L4yrVLEN6ioAGNc2+06DA=
+istio.io/istio v0.0.0-20230730121607-54c7dd733a1e h1:lpYS8UvtjqDVCIJfH6CdNMXN0V//cLbpmDkQbGpGgt0=
+istio.io/istio v0.0.0-20230730121607-54c7dd733a1e/go.mod h1:bPPj9aqWfxwmzsQ3k3Cb6Hqopk0frppr3z55qFqlqyE=
 k8s.io/api v0.18.2/go.mod h1:SJCWI7OLzhZSvbY7U8zwNl9UA4o1fizoug34OV/2r78=
 k8s.io/api v0.18.4/go.mod h1:lOIQAKYgai1+vz9J7YcDZwC26Z0zQewYOGWdyIPUUQ4=
 k8s.io/api v0.28.0-beta.0 h1:RQib3xI/dxXb2TPvSVRLvAjBjOMnU7jD0GwIAbKwBqU=

@@ -38,7 +38,7 @@ github.com/decred/dcrd/dcrec/secp256k1/v4
 ## explicit; go 1.13
 github.com/emicklei/go-restful/v3
 github.com/emicklei/go-restful/v3/log
-# github.com/envoyproxy/go-control-plane v0.11.2-0.20230714173708-c934c2bfce23
+# github.com/envoyproxy/go-control-plane v0.11.2-0.20230726084335-b501c94cb61e
 ## explicit; go 1.17
 github.com/envoyproxy/go-control-plane/contrib/envoy/extensions/config/v3alpha
 github.com/envoyproxy/go-control-plane/contrib/envoy/extensions/filters/http/dynamo/v3
@@ -804,7 +804,7 @@ istio.io/client-go/pkg/clientset/versioned/typed/security/v1beta1
 istio.io/client-go/pkg/clientset/versioned/typed/security/v1beta1/fake
 istio.io/client-go/pkg/clientset/versioned/typed/telemetry/v1alpha1
 istio.io/client-go/pkg/clientset/versioned/typed/telemetry/v1alpha1/fake
-# istio.io/istio v0.0.0-20230728030947-8f378324c05a
+# istio.io/istio v0.0.0-20230730121607-54c7dd733a1e
 ## explicit; go 1.20
 istio.io/istio/operator/pkg/apis
 istio.io/istio/operator/pkg/apis/istio/v1alpha1
