@@ -20,7 +20,6 @@ import "google/protobuf/wrappers.proto";
 import "mesh/v1alpha1/proxy.proto";
 import "networking/v1alpha3/destination_rule.proto";
 import "networking/v1alpha3/virtual_service.proto";
-import "k8s.io/apimachinery/pkg/apis/meta/v1/generated.proto";
 
 // $title: Global Mesh Options
 // $description: Configuration affecting the service mesh as a whole.
@@ -39,17 +38,18 @@ message MeshConfig {
   // Default port is 15001.
   int32 proxy_listen_port = 4;
 
-  // Port on which Envoy should listen for all inbound traffic to the pod/vm will be captured to. 
+  // Port on which Envoy should listen for all inbound traffic to the pod/vm will be captured to.
   // Default port is 15006.
   int32 proxy_inbound_listen_port = 65;
 
   // Port on which Envoy should listen for HTTP PROXY requests if set.
   int32 proxy_http_port = 5;
 
-  // Connection timeout used by Envoy. (MUST BE >=1ms)
+  // Connection timeout used by Envoy. (MUST be >=1ms)
   // Default timeout is 10s.
   google.protobuf.Duration connect_timeout = 6;
 
+  // $hide_from_docs
   // Automatic protocol detection uses a set of heuristics to
   // determine whether the connection is using TLS or not (on the
   // server side), as well as the application protocol being used
@@ -58,8 +58,13 @@ message MeshConfig {
   // MongoDB, etc. Envoy will timeout on the protocol detection after
   // the specified period, defaulting to non mTLS plain TCP
   // traffic. Set this field to tweak the period that Envoy will wait
-  // for the client to send the first bits of data. (MUST BE >=1ms or
+  // for the client to send the first bits of data. (MUST be >=1ms or
   // 0s to disable). Default detection timeout is 0s (no timeout).
+  //
+  // Setting a timeout is not recommended nor safe. Even high timeouts (>5s) will be hit
+  // occasionally, and when they occur the result is typically broken traffic that may not
+  // recover on its own. Exceptionally high values might solve this, but injecting 60s delays
+  // onto new connections is generally not tenable anyways.
   google.protobuf.Duration protocol_detection_timeout = 42;
 
   // If set then set `SO_KEEPALIVE` on the socket to enable TCP Keepalives.
@@ -83,13 +88,13 @@ message MeshConfig {
 
     // Istio ingress controller will act on ingress resources that do not
     // contain any annotation or whose annotations match the value
-    // specified in the ingress_class parameter described earlier. Use this
+    // specified in the ingressClass parameter described earlier. Use this
     // mode if Istio ingress controller will be the default ingress
     // controller for the entire Kubernetes cluster.
     DEFAULT = 2;
 
     // Istio ingress controller will only act on ingress resources whose
-    // annotations match the value specified in the ingress_class parameter
+    // annotations match the value specified in the ingressClass parameter
     // described earlier. Use this mode if Istio ingress controller will be
     // a secondary ingress controller (e.g., in addition to a
     // cloud-provided ingress controller).
@@ -104,7 +109,7 @@ message MeshConfig {
   // the Gateway.selector field, and will be set as `istio: INGRESS_SELECTOR`.
   // By default, `ingressgateway` is used, which will select the default IngressGateway as it has the
   // `istio: ingressgateway` labels.
-  // It is recommended that this is the same value as ingress_service.
+  // It is recommended that this is the same value as ingressService.
   string ingress_selector = 52;
 
   // $hide_from_docs
@@ -156,13 +161,21 @@ message MeshConfig {
   // On Kubernetes, this can be overridden on individual pods with the `proxy.istio.io/config` annotation.
   ProxyConfig default_config = 14;
 
+  // `OutboundTrafficPolicy` sets the default behavior of the sidecar for
+  // handling unknown outbound traffic from the application.
   message OutboundTrafficPolicy {
     enum Mode {
-      // outbound traffic will be restricted to services defined in the
-      // service registry as well as those defined through ServiceEntries
+      // In `REGISTRY_ONLY` mode, unknown outbound traffic will be dropped.
+      // Traffic destinations must be explicitly declared into the service registry through `ServiceEntry` configurations.
+      //
+      // Note: Istio [does not offer an outbound traffic security policy](https://istio.io/latest/docs/ops/best-practices/security/#understand-traffic-capture-limitations).
+      // This option does not act as one, or as any form of an outbound firewall.
+      // Instead, this option exists primarily to offer users a way to detect missing `ServiceEntry` configurations by explicitly failing.
       REGISTRY_ONLY = 0;
-      // outbound traffic to unknown destinations will be allowed, in case
-      // there are no services or ServiceEntries for the destination port
+      // In `ALLOW_ANY` mode, any traffic to unknown destinations will be allowed.
+      // Unknown destination traffic will have limited functionality, however, such as reduced observability.
+      // This mode allows users that do not have all possible egress destinations registered through `ServiceEntry` configurations to still connect
+      // to arbitrary destinations.
       ALLOW_ANY = 1;
 
       reserved 2;
@@ -172,18 +185,30 @@ message MeshConfig {
   }
 
   // Set the default behavior of the sidecar for handling outbound
-  // traffic from the application.  If your application uses one or
-  // more external services that are not known apriori, setting the
-  // policy to `ALLOW_ANY` will cause the sidecars to route any unknown
-  // traffic originating from the application to its requested
-  // destination. Users are strongly encouraged to use ServiceEntries
-  // to explicitly declare any external dependencies, instead of using
-  // `ALLOW_ANY`, so that traffic to these services can be
-  // monitored. Can be overridden at a Sidecar level by setting the
-  // `OutboundTrafficPolicy` in the [Sidecar
-  // API](https://istio.io/docs/reference/config/networking/sidecar/#OutboundTrafficPolicy).
-  // Default mode is `ALLOW_ANY` which means outbound traffic to unknown destinations will be allowed.
+  // traffic from the application.
+  //
+  // Can be overridden at a Sidecar level by setting the `OutboundTrafficPolicy` in the
+  // [Sidecar API](https://istio.io/docs/reference/config/networking/sidecar/#OutboundTrafficPolicy).
+  //
+  // Default mode is `ALLOW_ANY`, which means outbound traffic to unknown destinations will be allowed.
   OutboundTrafficPolicy outbound_traffic_policy = 17;
+
+  message InboundTrafficPolicy {
+    enum Mode {
+      // inbound traffic will be passed through to the destination listening
+      // on Pod IP. This matches the behavior without Istio enabled at all
+      // allowing proxy to be transparent.
+      PASSTHROUGH = 0;
+      // inbound traffic will be sent to the destinations listening on localhost.
+      LOCALHOST = 1;
+    }
+    Mode mode = 1;
+  }
+
+  // Set the default behavior of the sidecar for handling inbound
+  // traffic to the application.  If your application listens on
+  // localhost, you will need to set this to `LOCALHOST`.
+  InboundTrafficPolicy inbound_traffic_policy = 66;
 
   // ConfigSource describes a source of configuration data for networking
   // rules, and other Istio configuration artifacts. Multiple data sources
@@ -207,7 +232,7 @@ message MeshConfig {
   // Refer to [SPIFFE-ID](https://github.com/spiffe/spiffe/blob/master/standards/SPIFFE-ID.md#21-trust-domain)
   string trust_domain = 26;
 
-  // The trust domain aliases represent the aliases of `trust_domain`.
+  // The trust domain aliases represent the aliases of `trustDomain`.
   // For example, if we have
   // ```yaml
   // trustDomain: td1
@@ -236,12 +261,12 @@ message MeshConfig {
     // Optional. Specify the list of trust domains to which this trustAnchor data belongs.
     // If set, they are used for these trust domains. Otherwise, this trustAnchor is used for default trust domain
     // and its aliases.
-    // Note that we can have multiple trustAnchor data for a same trust_domain.
+    // Note that we can have multiple trustAnchor data for a same trustDomain.
     // In that case, trustAnchors with a same trust domain will be merged and used together to verify peer certificates.
-    // If neither cert_signers nor trust_domains is set, this trustAnchor is used for all trust domains and all signers.
-    // If only trust_domains is set, this trustAnchor is used for these trust_domains and all signers.
-    // If only cert_signers is set, this trustAnchor is used for these cert_signers and all trust domains.
-    // If both cert_signers and trust_domains is set, this trustAnchor is only used for these signers and trust domains.
+    // If neither certSigners nor trustDomains is set, this trustAnchor is used for all trust domains and all signers.
+    // If only trustDomains is set, this trustAnchor is used for these trustDomains and all signers.
+    // If only certSigners is set, this trustAnchor is used for these certSigners and all trust domains.
+    // If both certSigners and trustDomains is set, this trustAnchor is only used for these signers and trust domains.
     repeated string trust_domains = 4;
   }
 
@@ -251,7 +276,7 @@ message MeshConfig {
   // The CA certificate that signs the workload certificates is automatically added by Istio Agent.
   repeated CertificateData ca_certificates = 58;
 
-  // The default value for the ServiceEntry.export_to field and services
+  // The default value for the ServiceEntry.exportTo field and services
   // imported through container registry integrations, e.g. this applies to
   // Kubernetes Service resources. The value is a list of namespace names and
   // reserved namespace aliases. The allowed namespace aliases are:
@@ -277,15 +302,15 @@ message MeshConfig {
   // `Sidecar`, and `Gateway`.
   repeated string default_service_export_to = 31;
 
-  // The default value for the VirtualService.export_to field. Has the same
-  // syntax as `default_service_export_to`.
+  // The default value for the VirtualService.exportTo field. Has the same
+  // syntax as `defaultServiceExportTo`.
   //
   // If not set the system will use "*" as the default value which implies that
   // virtual services are exported to all namespaces
   repeated string default_virtual_service_export_to = 32;
 
-  // The default value for the `DestinationRule.export_to` field. Has the same
-  // syntax as `default_service_export_to`.
+  // The default value for the `DestinationRule.exportTo` field. Has the same
+  // syntax as `defaultServiceExportTo`.
   //
   // If not set the system will use "*" as the default value which implies that
   // destination rules are exported to all namespaces
@@ -332,7 +357,8 @@ message MeshConfig {
   //
   // A Pattern can be composed of various pre-defined variables. The following variables are supported.
   //
-  // - `%SERVICE%` - Will be substituted with name of the service.
+  // - `%SERVICE%` - Will be substituted with short hostname of the service.
+  // - `%SERVICE_NAME%` - Will be substituted with name of the service.
   // - `%SERVICE_FQDN%` - Will be substituted with FQDN of the service.
   // - `%SERVICE_PORT%` - Will be substituted with port of the service.
   // - `%TARGET_PORT%`  - Will be substituted with the target port of the service.
@@ -351,7 +377,8 @@ message MeshConfig {
   //
   // A Pattern can be composed of various pre-defined variables. The following variables are supported.
   //
-  // - `%SERVICE%` - Will be substituted with name of the service.
+  // - `%SERVICE%` - Will be substituted with short hostname of the service.
+  // - `%SERVICE_NAME%` - Will be substituted with name of the service.
   // - `%SERVICE_FQDN%` - Will be substituted with FQDN of the service.
   // - `%SERVICE_PORT%` - Will be substituted with port of the service.
   // - `%SERVICE_PORT_NAME%` - Will be substituted with port name of the service.
@@ -366,8 +393,8 @@ message MeshConfig {
   // $hide_from_docs
   // Configure the provision of certificates.
   //
-  // Note: Deprecated, please refer to Cert-Manager or other cert provisioning solutions to sign DNS certificates. 
-  repeated Certificate certificates = 47;
+  // Note: Deprecated, please refer to Cert-Manager or other cert provisioning solutions to sign DNS certificates.
+  repeated Certificate certificates = 47 [deprecated=true];
 
   reserved 49;
   reserved "thrift_config";
@@ -381,7 +408,7 @@ message MeshConfig {
   // ```yaml
   // serviceSettings:
   //   - settings:
-  //       cluster_local: true
+  //       clusterLocal: true
   //     hosts:
   //       - "*.foo.svc.cluster.local"
   //       - "bar.baz.svc.cluster.local"
@@ -454,7 +481,7 @@ message MeshConfig {
   // match either `x.y.com` or `*.y.com` for the SAN in the presented server certificate.
   // For wildcard host name in DestinationRule, client-side proxy will do a suffix match. For example,
   // if host is `*.x.y.com`, client-side proxy will verify the presented server certificate SAN matches
-  // ``.x.y.com` suffix.
+  // `.x.y.com` suffix.
   google.protobuf.BoolValue verify_certificate_at_client = 54 [deprecated=true];
 
   message CA {
@@ -462,8 +489,8 @@ message MeshConfig {
     // Can be IP address or a fully qualified DNS name with port
     // Eg: custom-ca.default.svc.cluster.local:8932, 192.168.23.2:9000
     string address = 1;
-    // Use the tls_settings to specify the tls mode to use.
-    // Regarding tls_settings:
+    // Use the tlsSettings to specify the tls mode to use.
+    // Regarding tlsSettings:
     // - DISABLE MODE is legitimate for the case Istiod is making the request via an Envoy sidecar.
     // DISABLE MODE can also be used for testing
     // - TLS MUTUAL MODE be on by default. If the CA certificates
@@ -473,7 +500,7 @@ message MeshConfig {
     // timeout for forward CSR requests from Istiod to External CA
     // Default: 10s
     google.protobuf.Duration request_timeout = 3;
-    // Use istiod_side to specify CA Server integrate to Istiod side or Agent side
+    // Use istiodSide to specify CA Server integrate to Istiod side or Agent side
     // Default: true
     bool istiod_side = 4;
   }
@@ -500,12 +527,13 @@ message MeshConfig {
       LightstepTracingProvider lightstep = 5 [deprecated=true];
       // Configures a Datadog tracing provider.
       DatadogTracingProvider datadog = 6;
+      // $hide_from_docs
       // Configures a Stackdriver provider.
       StackdriverProvider stackdriver = 7;
       // $hide_from_docs
       // Configures an OpenCensusAgent tracing provider.
       // Deprecated: OpenCensus is deprecated, more details can be found at https://opentelemetry.io/blog/2023/sunsetting-opencensus/
-      OpenCensusAgentTracingProvider opencensus = 8;
+      OpenCensusAgentTracingProvider opencensus = 8 [deprecated=true];
       // Configures a Apache SkyWalking provider.
       SkyWalkingTracingProvider skywalking = 9;
       // Configures an OpenTelemetry tracing provider.
@@ -527,22 +555,22 @@ message MeshConfig {
 
     message EnvoyExternalAuthorizationRequestBody {
       // Sets the maximum size of a message body that the ext-authz filter will hold in memory.
-      // If max_request_bytes is reached, and allow_partial_message is false, Envoy will return a 413 (Payload Too Large).
+      // If maxRequestBytes is reached, and allowPartialMessage is false, Envoy will return a 413 (Payload Too Large).
       // Otherwise the request will be sent to the provider with a partial message.
-      // Note that this setting will have precedence over the fail_open field, the 413 will be returned even when the
-      // fail_open is set to true.
+      // Note that this setting will have precedence over the failOpen field, the 413 will be returned even when the
+      // failOpen is set to true.
       uint32 max_request_bytes = 1;
 
-      // When this field is true, ext-authz filter will buffer the message until max_request_bytes is reached.
+      // When this field is true, ext-authz filter will buffer the message until maxRequestBytes is reached.
       // The authorization request will be dispatched and no 413 HTTP error will be returned by the filter.
       // A "x-envoy-auth-partial-body: false|true" metadata header will be added to the authorization request message
       // indicating if the body data is partial.
       bool allow_partial_message = 2;
 
       // If true, the body sent to the external authorization service in the gRPC authorization request is set with raw bytes
-      // in the raw_body field (https://github.com/envoyproxy/envoy/blame/cffb095d59d7935abda12b9509bcd136808367bb/api/envoy/service/auth/v3/attribute_context.proto#L153).
-      // Otherwise, it will be filled with UTF-8 string in the body field (https://github.com/envoyproxy/envoy/blame/cffb095d59d7935abda12b9509bcd136808367bb/api/envoy/service/auth/v3/attribute_context.proto#L147).
-      // This field only works with the envoy_ext_authz_grpc provider and has no effect for the envoy_ext_authz_http provider.
+      // in the [raw_body field](https://github.com/envoyproxy/envoy/blame/cffb095d59d7935abda12b9509bcd136808367bb/api/envoy/service/auth/v3/attribute_context.proto#L153).
+      // Otherwise, it will be filled with UTF-8 string in the [body field](https://github.com/envoyproxy/envoy/blame/cffb095d59d7935abda12b9509bcd136808367bb/api/envoy/service/auth/v3/attribute_context.proto#L147).
+      // This field only works with the envoyExtAuthzGrpc provider and has no effect for the envoyExtAuthzHttp provider.
       bool pack_as_bytes = 3;
     }
 
@@ -560,7 +588,7 @@ message MeshConfig {
 
       // The maximum duration that the proxy will wait for a response from the provider (default timeout: 600s).
       // When this timeout condition is met, the proxy marks the communication to the authorization service as failure.
-      // In this situation, the response sent back to the client will depend on the configured `fail_open` field.
+      // In this situation, the response sent back to the client will depend on the configured `failOpen` field.
       google.protobuf.Duration timeout = 9;
 
       // Sets a prefix to the value of authorization request header *Path*.
@@ -573,22 +601,28 @@ message MeshConfig {
       // Default is false and the request will be rejected with "Forbidden" response.
       bool fail_open = 4;
 
+      // If true, clears route cache in order to allow the external authorization service to correctly affect routing decisions.
+      // If true, recalculate routes with the new ExtAuthZ added/removed headers.
+      // Default is false
+      bool clear_route_cache = 14;
+
       // Sets the HTTP status that is returned to the client when there is a network error to the authorization service.
       // The default status is "403" (HTTP Forbidden).
       string status_on_error = 5;
 
-      // DEPRECATED. Use include_request_headers_in_check instead.
-      repeated string include_headers_in_check = 6;
+      // DEPRECATED. Use includeRequestHeadersInCheck instead.
+      repeated string include_headers_in_check = 6 [deprecated=true];
 
       // List of client request headers that should be included in the authorization request sent to the authorization service.
       // Note that in addition to the headers specified here following headers are included by default:
       // 1. *Host*, *Method*, *Path* and *Content-Length* are automatically sent.
       // 2. *Content-Length* will be set to 0 and the request will not have a message body. However, the authorization
-      // request can include the buffered client request body (controlled by include_request_body_in_check setting),
+      // request can include the buffered client request body (controlled by includeRequestBodyInCheck setting),
       // consequently the value of Content-Length of the authorization request reflects the size of its payload size.
       //
-      // Exact, prefix and suffix matches are supported (similar to the authorization policy rule syntax except the presence match
-      // https://istio.io/latest/docs/reference/config/security/authorization-policy/#Rule):
+      // Exact, prefix and suffix matches are supported (similar to the
+      // [authorization policy rule syntax](https://istio.io/latest/docs/reference/config/security/authorization-policy/#Rule)
+      // except the presence match):
       // - Exact match: "abc" will match on value "abc".
       // - Prefix match: "abc*" will match on value "abc" and "abcd".
       // - Suffix match: "*abc" will match on value "abc" and "xabc".
@@ -596,7 +630,7 @@ message MeshConfig {
 
       // Set of additional fixed headers that should be included in the authorization request sent to the authorization service.
       // Key is the header name and value is the header value.
-      // Note that client request of the same key or headers specified in include_request_headers_in_check will be overridden.
+      // Note that client request of the same key or headers specified in includeRequestHeadersInCheck will be overridden.
       map<string, string> include_additional_headers_in_check = 11;
 
       // If set, the client request body will be included in the authorization request sent to the authorization service.
@@ -607,8 +641,9 @@ message MeshConfig {
       // If not specified, the original request will not be modified and forwarded to backend as-is.
       // Note, any existing headers will be overridden.
       //
-      // Exact, prefix and suffix matches are supported (similar to the authorization policy rule syntax except the presence match
-      // https://istio.io/latest/docs/reference/config/security/authorization-policy/#Rule):
+      // Exact, prefix and suffix matches are supported (similar to the
+      // [authorization policy rule syntax](https://istio.io/latest/docs/reference/config/security/authorization-policy/#Rule)
+      // except the presence match):
       // - Exact match: "abc" will match on value "abc".
       // - Prefix match: "abc*" will match on value "abc" and "abcd".
       // - Suffix match: "*abc" will match on value "abc" and "xabc".
@@ -622,8 +657,9 @@ message MeshConfig {
       // automatically added.
       // Note, the body from the authorization service is always included in the response to downstream.
       //
-      // Exact, prefix and suffix matches are supported (similar to the authorization policy rule syntax except the presence match
-      // https://istio.io/latest/docs/reference/config/security/authorization-policy/#Rule):
+      // Exact, prefix and suffix matches are supported (similar to the
+      // [authorization policy rule syntax](https://istio.io/latest/docs/reference/config/security/authorization-policy/#Rule)
+      // except the presence match):
       // - Exact match: "abc" will match on value "abc".
       // - Prefix match: "abc*" will match on value "abc" and "abcd".
       // - Suffix match: "*abc" will match on value "abc" and "xabc".
@@ -634,15 +670,16 @@ message MeshConfig {
       // If not specified, the original response will not be modified and forwarded to downstream as-is.
       // Note, any existing headers will be overridden.
       //
-      // Exact, prefix and suffix matches are supported (similar to the authorization policy rule syntax except the presence match
-      // https://istio.io/latest/docs/reference/config/security/authorization-policy/#Rule):
+      // Exact, prefix and suffix matches are supported (similar to the
+      // [authorization policy rule syntax](https://istio.io/latest/docs/reference/config/security/authorization-policy/#Rule)
+      // except the presence match):
       // - Exact match: "abc" will match on value "abc".
       // - Prefix match: "abc*" will match on value "abc" and "abcd".
       // - Suffix match: "*abc" will match on value "abc" and "xabc".
       repeated string headers_to_downstream_on_allow = 13;
 
       // $hide_from_docs
-      // Next available field number: 14
+      // Next available field number: 15
     }
 
     message EnvoyExternalAuthorizationGrpcProvider {
@@ -659,13 +696,18 @@ message MeshConfig {
 
       // The maximum duration that the proxy will wait for a response from the provider, this is the timeout for a specific request (default timeout: 600s).
       // When this timeout condition is met, the proxy marks the communication to the authorization service as failure.
-      // In this situation, the response sent back to the client will depend on the configured `fail_open` field.
+      // In this situation, the response sent back to the client will depend on the configured `failOpen` field.
       google.protobuf.Duration timeout = 5;
 
       // If true, the HTTP request or TCP connection will be allowed even if the communication with the authorization service has failed,
       // or if the authorization service has returned a HTTP 5xx error.
       // Default is false. For HTTP request, it will be rejected with 403 (HTTP Forbidden). For TCP connection, it will be closed immediately.
       bool fail_open = 3;
+
+      // If true, clears route cache in order to allow the external authorization service to correctly affect routing decisions.
+      // If true, recalculate routes with the new ExtAuthZ added/removed headers.
+      // Default is false
+      bool clear_route_cache = 7;
 
       // Sets the HTTP status that is returned to the client when there is a network error to the authorization service.
       // The default status is "403" (HTTP Forbidden).
@@ -675,10 +717,10 @@ message MeshConfig {
       EnvoyExternalAuthorizationRequestBody include_request_body_in_check = 6;
 
       // $hide_from_docs
-      // Next available field number: 7
+      // Next available field number: 8
     }
 
-    // Defines configuration for a Zipkin tracer. 
+    // Defines configuration for a Zipkin tracer.
     message ZipkinTracingProvider {
       // REQUIRED. Specifies the service that the Zipkin API.
       // The format is `[<Namespace>/]<Hostname>`. The specification of `<Namespace>` is required only when it is insufficient
@@ -698,6 +740,10 @@ message MeshConfig {
       // Optional. A 128 bit trace id will be used in Istio.
       // If true, will result in a 64 bit trace id being used.
       bool enable_64bit_trace_id = 4;
+
+      // Optional. Specifies the endpoint of Zipkin API.
+      // The default value is "/api/v2/spans".
+      string path = 5;
     }
 
     // Defines configuration for a Lightstep tracer.
@@ -804,11 +850,11 @@ message MeshConfig {
     //
     // WARNING: OpenCensusAgentTracingProviders should be used with extreme care. Configuration of
     // OpenCensus providers CANNOT be changed during the course of proxy's lifetime due to a limitation
-    // in the implementation of OpenCensus driver in Envoy. This means only a single provider configuration 
+    // in the implementation of OpenCensus driver in Envoy. This means only a single provider configuration
     // may be used for OpenCensus at any given time for a proxy or group of proxies AND that any change to the provider
     // configuration MUST be accompanied by a restart of all proxies that will use that configuration.
     //
-    // NOTE: Stackdriver tracing uses OpenCensus configuraiton under the hood and, as a result, cannot be used
+    // NOTE: Stackdriver tracing uses OpenCensus configuration under the hood and, as a result, cannot be used
     // alongside OpenCensus provider configuration.
     message OpenCensusAgentTracingProvider {
       // REQUIRED. Specifies the service for the OpenCensusAgent.
@@ -896,6 +942,11 @@ message MeshConfig {
 
       // Optional. Allows overriding of the default access log format.
       LogFormat log_format = 2;
+
+      // Optional. If set to true, when command operators are evaluated to null,
+      // For text format, the output of the empty operator is changed from "-" to an empty string.
+      // For json format, the keys with null values are omitted in the output structure.
+      bool omit_empty_values = 3;
     }
 
     // Defines configuration for an Envoy [Access Logging Service](https://www.envoyproxy.io/docs/envoy/latest/api-v3/extensions/access_loggers/grpc/v3/als.proto#grpc-access-log-service-als)
@@ -981,7 +1032,7 @@ message MeshConfig {
           // Textual format for the envoy access logs. Envoy [command operators](https://www.envoyproxy.io/docs/envoy/latest/configuration/observability/access_log/usage#command-operators) may be
           // used in the format. The [format string documentation](https://www.envoyproxy.io/docs/envoy/latest/configuration/observability/access_log/usage#config-access-log-format-strings)
           // provides more information.
-          // Alias to `body` filed in [Open Telemetry](https://www.envoyproxy.io/docs/envoy/latest/api-v3/extensions/access_loggers/open_telemetry/v3/logs_service.proto)
+          // Alias to `body` field in [Open Telemetry](https://www.envoyproxy.io/docs/envoy/latest/api-v3/extensions/access_loggers/open_telemetry/v3/logs_service.proto)
           // Example: `text: "%LOCAL_REPLY_BODY%:%RESPONSE_CODE%:path=%REQ(:path)%"`
           string text = 1;
 
@@ -991,7 +1042,7 @@ message MeshConfig {
           // as strings, numbers, or boolean values, as appropriate
           // (see: [format dictionaries](https://www.envoyproxy.io/docs/envoy/latest/configuration/observability/access_log/usage#config-access-log-format-dictionaries)). Nested JSON is
           // supported for some command operators (e.g. FILTER_STATE or DYNAMIC_METADATA).
-          // Alias to `attributes` filed in [Open Telemetry](https://www.envoyproxy.io/docs/envoy/latest/api-v3/extensions/access_loggers/open_telemetry/v3/logs_service.proto)
+          // Alias to `attributes` field in [Open Telemetry](https://www.envoyproxy.io/docs/envoy/latest/api-v3/extensions/access_loggers/open_telemetry/v3/logs_service.proto)
           //
           // Example:
           // ```
@@ -999,7 +1050,7 @@ message MeshConfig {
           //   status: "%RESPONSE_CODE%"
           //   message: "%LOCAL_REPLY_BODY%"
           // ```
-          google.protobuf.Struct labels = 2;   
+          google.protobuf.Struct labels = 2;
       }
     }
 
@@ -1019,6 +1070,234 @@ message MeshConfig {
       // Optional. Controls the overall path length allowed in a reported span.
       // NOTE: currently only controls max length of the path tag.
       uint32 max_tag_length = 3;
+
+      // Optional. Specifies the configuration for exporting OTLP traces via HTTP.
+      // When empty, traces will be exported via gRPC.
+      //
+      // The following example shows how to configure the OpenTelemetry ExtensionProvider to export via HTTP:
+      //
+      // 1. Add/change the OpenTelemetry extension provider in `MeshConfig`
+      // ```yaml
+      // - name: otel-tracing
+      //   opentelemetry:
+      //     port: 443
+      //     service: my.olly-backend.com
+      //     http:
+      //       path: "/api/otlp/traces"
+      //       timeout: 10s
+      //       headers:
+      //       - name: "my-custom-header"
+      //         value: "some value"
+      // ```
+      //
+      // 2. Deploy a `ServiceEntry` for the observability back-end
+      // ```yaml
+      // apiVersion: networking.istio.io/v1alpha3
+      // kind: ServiceEntry
+      // metadata:
+      //   name: my-olly-backend
+      // spec:
+      //   hosts:
+      //   - my.olly-backend.com
+      //   ports:
+      //   - number: 443
+      //     name: https-port
+      //     protocol: HTTPS
+      //   resolution: DNS
+      //   location: MESH_EXTERNAL
+      // ---
+      // apiVersion: networking.istio.io/v1alpha3
+      // kind: DestinationRule
+      // metadata:
+      //   name: my-olly-backend
+      // spec:
+      //   host: my.olly-backend.com
+      //   trafficPolicy:
+      //     portLevelSettings:
+      //     - port:
+      //         number: 443
+      //       tls:
+      //         mode: SIMPLE
+      // ```
+      HttpService http = 4;
+
+      // Optional. Specifies the configuration for exporting OTLP traces via GRPC.
+      // When empty, traces will check whether HTTP is set.
+      // If not, traces will use default GRPC configurations.
+      //
+      // The following example shows how to configure the OpenTelemetry ExtensionProvider to export via GRPC:
+      //
+      // 1. Add/change the OpenTelemetry extension provider in `MeshConfig`
+      // ```yaml
+      // - name: opentelemetry
+      //   opentelemetry:
+      //     port: 8090
+      //     service: tracing.example.com
+      //     grpc:
+      //       timeout: 10s
+      //       initialMetadata:
+      //       - name: "Authentication"
+      //         value: "token-xxxxx"
+      // ```
+      //
+      // 2. Deploy a `ServiceEntry` for the observability back-end
+      // ```yaml
+      // apiVersion: networking.istio.io/v1alpha3
+      // kind: ServiceEntry
+      // metadata:
+      //   name: tracing-grpc
+      // spec:
+      //   hosts:
+      //   - tracing.example.com
+      //   ports:
+      //   - number: 8090
+      //     name: grpc-port
+      //     protocol: GRPC
+      //   resolution: DNS
+      //   location: MESH_EXTERNAL
+      // ```
+      GrpcService grpc = 7;
+
+      // Optional. Specifies [Resource Detectors](https://opentelemetry.io/docs/specs/otel/resource/sdk/)
+      // to be used by the OpenTelemetry Tracer. When multiple resources are provided, they are merged
+      // according to the OpenTelemetry [Resource specification](https://opentelemetry.io/docs/specs/otel/resource/sdk/#merge).
+      //
+      // The following example shows how to configure the Environment Resource Detector, that will
+      // read the attributes from the environment variable `OTEL_RESOURCE_ATTRIBUTES`:
+      //
+      // ```yaml
+      // - name: otel-tracing
+      //   opentelemetry:
+      //     port: 443
+      //     service: my.olly-backend.com
+      //     resourceDetectors:
+      //       environment: {}
+      // ```
+      ResourceDetectors resource_detectors = 5;
+
+      // Optional. Configure a [Sampler](https://opentelemetry.io/docs/specs/otel/trace/sdk/#sampler)
+      // to be used by the OpenTelemetry Tracer.
+      oneof sampling {
+
+        // The Dynatrace adaptive traffic management (ATM) sampler.
+        //
+        // Example configuration:
+        //
+        // ```yaml
+        // - name: otel-tracing
+        //   opentelemetry:
+        //     port: 443
+        //     service: "{your-environment-id}.live.dynatrace.com"
+        //     http:
+        //       path: "/api/v2/otlp/v1/traces"
+        //       timeout: 10s
+        //       headers:
+        //         - name: "Authorization"
+        //           value: "Api-Token dt0c01."
+        //     resourceDetectors:
+        //       dynatrace: {}
+        //     dynatraceSampler:
+        //       tenant: "{your-environment-id}"
+        //       clusterId: 1234
+        DynatraceSampler dynatrace_sampler = 6;
+      }
+
+      message DynatraceSampler {
+        // REQUIRED. The Dynatrace customer's tenant identifier.
+        //
+        // The value can be obtained from the Istio deployment page in Dynatrace.
+        string tenant = 1;
+
+        // REQUIRED. The identifier of the cluster in the Dynatrace platform.
+        // The cluster here is Dynatrace-specific concept and not related to the cluster concept in Istio/Envoy.
+        //
+        // The value can be obtained from the Istio deployment page in Dynatrace.
+        int32 cluster_id = 2;
+
+        // Optional. Number of sampled spans per minute to be used
+        // when the adaptive value cannot be obtained from the Dynatrace API.
+        //
+        // A default value of `1000` is used when:
+        //
+        // - `rootSpansPerMinute` is unset
+        // - `rootSpansPerMinute` is set to 0
+        uint32 root_spans_per_minute = 3;
+
+        // Optional. Dynatrace HTTP API to obtain sampling configuration.
+        //
+        // When not provided, the Dynatrace Sampler will re-use the configuration from the OpenTelemetryTracingProvider HTTP Exporter
+        // (`service`, `port` and `http`), including the access token.
+        DynatraceApi http_service = 4;
+
+        message DynatraceApi {
+          // REQUIRED. Specifies the Dynatrace environment to obtain the sampling configuration.
+          // The format is `<Hostname>`, where `<Hostname>` is the fully qualified Dynatrace environment
+          // host name defined in the ServiceEntry.
+          //
+          // Example: "{your-environment-id}.live.dynatrace.com".
+          string service = 1;
+
+          // REQUIRED. Specifies the port of the service.
+          uint32 port = 2;
+
+          // REQUIRED. Specifies sampling configuration URI.
+          HttpService http = 3;
+        }
+      }
+    }
+
+    // Defines configuration for an HTTP service that can be used by an Extension Provider.
+    // that does communication via HTTP.
+    message HttpService {
+      // REQUIRED. Specifies the path on the service.
+      string path = 1;
+
+      // Optional. Specifies the timeout for the HTTP request.
+      // If not specified, the default is 3s.
+      google.protobuf.Duration timeout = 2;
+
+      // Optional. Allows specifying custom HTTP headers that will be added
+      // to each HTTP request sent.
+      repeated HttpHeader headers = 3;
+    }
+
+    message HttpHeader {
+      // REQUIRED. The HTTP header name.
+      string name = 1;
+      // REQUIRED. The HTTP header value.
+      string value = 2;
+    }
+
+    message ResourceDetectors {
+      EnvironmentResourceDetector environment = 1;
+
+      DynatraceResourceDetector dynatrace = 2;
+
+      // OpenTelemetry Environment Resource Detector.
+      // The resource detector reads attributes from the environment variable `OTEL_RESOURCE_ATTRIBUTES`
+      // and adds them to the OpenTelemetry resource.
+      //
+      // See: [Resource specification](https://opentelemetry.io/docs/specs/otel/resource/sdk/#specifying-resource-information-via-an-environment-variable)
+      message EnvironmentResourceDetector { }
+
+      // Dynatrace Resource Detector.
+      // The resource detector reads from the Dynatrace enrichment files
+      // and adds host/process related attributes to the OpenTelemetry resource.
+      //
+      // See: [Enrich ingested data with Dynatrace-specific dimensions](https://docs.dynatrace.com/docs/shortlink/enrichment-files)
+      message DynatraceResourceDetector { }
+    }
+
+    // Defines configuration for an GRPC service that can be used by an Extension Provider.
+    // that does communication via GRPC.
+    message GrpcService {
+      // Optional. Specifies the timeout for the GRPC request.
+      google.protobuf.Duration timeout = 1;
+
+      // Optional. Additional metadata to include in streams initiated to the GrpcService. This can be used for
+      // scenarios in which additional ad hoc authorization headers (e.g. "x-foo-bar: baz-key") are to
+      // be injected.
+      repeated HttpHeader initial_metadata = 2;
     }
   }
 
@@ -1029,7 +1308,7 @@ message MeshConfig {
   // Holds the name references to the providers that will be used by default
   // in other Istio configuration resources if the provider is not specified.
   //
-  // These names must match a provider defined in `extension_providers` that is
+  // These names must match a provider defined in `extensionProviders` that is
   // one of the supported tracing providers.
   message DefaultProviders {
     // Name of the default provider(s) for tracing.
@@ -1063,9 +1342,9 @@ message MeshConfig {
   //         - cassandra
   //         - spark
   // ```
-  // Refer to the [kubernetes selector docs](https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/#label-selectors)
+  // Refer to the [Kubernetes selector docs](https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/#label-selectors)
   // for additional detail on selector semantics.
-  repeated k8s.io.apimachinery.pkg.apis.meta.v1.LabelSelector discovery_selectors = 59;
+  repeated LabelSelector discovery_selectors = 59;
 
   message ProxyPathNormalization {
     enum NormalizationType {
@@ -1105,7 +1384,7 @@ message MeshConfig {
   // The default number of retry attempts is set at 2 for these errors:
   //   "connect-failure,refused-stream,unavailable,cancelled,retriable-status-codes".
   // Setting the number of attempts to 0 disables retry policy globally.
-  // This setting can be overriden on a per-host basis using the Virtual Service
+  // This setting can be overridden on a per-host basis using the Virtual Service
   // API.
   // All settings in the retry policy except `perTryTimeout` can currently be
   // configured globally via this field.
@@ -1133,23 +1412,26 @@ message MeshConfig {
     TLSProtocol min_protocol_version = 1;
     //
     // Optional: If specified, the TLS connection will only support the specified ECDH curves for the DH key exchange.
-    // If not specified, the default curves enforced by envoy will be used. For details about the default curves, refer to
-    // [Ecdh Curves](https://www.envoyproxy.io/docs/envoy/latest/api-v3/extensions/transport_sockets/tls/v3/common.proto)
+    // If not specified, the default curves enforced by Envoy will be used. For details about the default curves, refer to
+    // [Ecdh Curves](https://www.envoyproxy.io/docs/envoy/latest/api-v3/extensions/transport_sockets/tls/v3/common.proto).
     repeated string ecdh_curves = 2;
     //
     // Optional: If specified, the TLS connection will only support the specified cipher list when negotiating TLS 1.0-1.2.
     // If not specified, the following cipher suites will be used:
-    // 	ECDHE-ECDSA-AES256-GCM-SHA384
-    //  ECDHE-RSA-AES256-GCM-SHA384
-    //  ECDHE-ECDSA-AES128-GCM-SHA256
-    //  ECDHE-RSA-AES128-GCM-SHA256
-    //  AES256-GCM-SHA384
-    //  AES128-GCM-SHA256
+    // ```
+    // ECDHE-ECDSA-AES256-GCM-SHA384
+    // ECDHE-RSA-AES256-GCM-SHA384
+    // ECDHE-ECDSA-AES128-GCM-SHA256
+    // ECDHE-RSA-AES128-GCM-SHA256
+    // AES256-GCM-SHA384
+    // AES128-GCM-SHA256
+    // ```
     repeated string cipher_suites = 3;
   }
 
   // The below configuration parameters can be used to specify TLSConfig for mesh traffic.
   // For example, a user could enable min TLS version for ISTIO_MUTUAL traffic and specify a curve for non ISTIO_MUTUAL traffic like below:
+  // ```yaml
   // meshConfig:
   //   meshMTLS:
   //     minProtocolVersion: TLSV1_3
@@ -1158,18 +1440,19 @@ message MeshConfig {
   //     ecdhCurves:
   //       - P-256
   //       - P-512
-  //
+  // ```
   // Configuration of mTLS for traffic between workloads with ISTIO_MUTUAL TLS traffic.
+  //
   // Note: Mesh mTLS does not respect ECDH curves.
   TLSConfig mesh_mTLS = 63;
   //
   // Configuration of TLS for all traffic except for ISTIO_MUTUAL mode.
-  // Currently, this supports configuration of ecdh_curves only.
+  // Currently, this supports configuration of ecdhCurves and cipherSuites only.
   // For ISTIO_MUTUAL TLS settings, use meshMTLS configuration.
   TLSConfig tls_defaults = 64;
 
   // $hide_from_docs
-  // Next available field number: 66
+  // Next available field number: 67
   reserved 1;
   reserved "mixer_check_server";
   reserved 2;
@@ -1218,6 +1501,43 @@ message MeshConfig {
    SERVICE_REGISTRY = 0;
  }
 
+
+// A label selector requirement is a selector that contains values, a key, and an operator that
+// relates the key and values.
+// Copied from Kubernetes to avoid expensive dependency on Kubernetes libraries.
+message LabelSelector {
+  // matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+  // map is equivalent to an element of matchExpressions, whose key field is "key", the
+  // operator is "In", and the values array contains only "value". The requirements are ANDed.
+  // +optional
+  map<string, string> matchLabels = 1;
+
+  // matchExpressions is a list of label selector requirements. The requirements are ANDed.
+  // +optional
+  repeated LabelSelectorRequirement matchExpressions = 2;
+}
+
+// A label selector requirement is a selector that contains values, a key, and an operator that
+// relates the key and values.
+// Copied from Kubernetes to avoid expensive dependency on Kubernetes libraries.
+message LabelSelectorRequirement {
+  // key is the label key that the selector applies to.
+  // +patchMergeKey=key
+  // +patchStrategy=merge
+  string key = 1;
+
+  // operator represents a key's relationship to a set of values.
+  // Valid operators are In, NotIn, Exists and DoesNotExist.
+  string operator = 2;
+
+  // values is an array of string values. If the operator is In or NotIn,
+  // the values array must be non-empty. If the operator is Exists or DoesNotExist,
+  // the values array must be empty. This array is replaced during a strategic
+  // merge patch.
+  // +optional
+  repeated string values = 3;
+}
+
 // ConfigSource describes information about a configuration store inside a
 // mesh. A single control plane instance can interact with one or more data
 // sources.
@@ -1227,8 +1547,8 @@ message ConfigSource {
  // Use xds:// to specify a grpc-based xds backend, k8s:// to specify a k8s controller or
  // fs:/// to specify a file-based backend with absolute path to the directory.
  string address = 1;
- // Use the tls_settings to specify the tls mode to use. If the MCP server
- // uses Istio mutual TLS and shares the root CA with Pilot, specify the TLS
+ // Use the tlsSettings to specify the tls mode to use. If the MCP server
+ // uses Istio mutual TLS and shares the root CA with istiod, specify the TLS
  // mode as `ISTIO_MUTUAL`.
  istio.networking.v1alpha3.ClientTLSSettings tls_settings = 2;
  // Describes the source of configuration, if nothing is specified default is MCP

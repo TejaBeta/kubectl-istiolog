@@ -55,9 +55,9 @@ type Scope struct {
 	callerSkip  int
 
 	// set by the Configure method and adjustable dynamically
-	outputLevel     atomic.Value
-	stackTraceLevel atomic.Value
-	logCallers      atomic.Value
+	outputLevel     *atomic.Value
+	stackTraceLevel *atomic.Value
+	logCallers      *atomic.Value
 
 	// labels data - key slice to preserve ordering
 	labelKeys []string
@@ -89,9 +89,12 @@ func registerScope(name string, description string, callerSkip int) *Scope {
 	s, ok := scopes[name]
 	if !ok {
 		s = &Scope{
-			name:        name,
-			description: description,
-			callerSkip:  callerSkip,
+			name:            name,
+			description:     description,
+			callerSkip:      callerSkip,
+			outputLevel:     &atomic.Value{},
+			stackTraceLevel: &atomic.Value{},
+			logCallers:      &atomic.Value{},
 		}
 		s.SetOutputLevel(InfoLevel)
 		s.SetStackTraceLevel(NoneLevel)
@@ -218,6 +221,13 @@ func (s *Scope) Debug(msg any) {
 	}
 }
 
+// LogWithTime outputs a message with a given timestamp.
+func (s *Scope) LogWithTime(level Level, msg string, t time.Time) {
+	if s.GetOutputLevel() >= level {
+		s.emitWithTime(levelToZap[level], msg, t)
+	}
+}
+
 // Debugf uses fmt.Sprintf to construct and log a message at debug level.
 func (s *Scope) Debugf(format string, args ...any) {
 	if s.GetOutputLevel() >= DebugLevel {
@@ -295,17 +305,30 @@ func (s *Scope) WithLabels(kvlist ...any) *Scope {
 			out.labels["WithLabels error"] = fmt.Sprintf("label name %v must be a string, got %T ", keyi, keyi)
 			return out
 		}
+		_, override := out.labels[key]
 		out.labels[key] = kvlist[i+1]
+		if override {
+			// Key already set, just modify the value
+			continue
+		}
 		out.labelKeys = append(out.labelKeys, key)
 	}
 	return out
 }
 
 func (s *Scope) emit(level zapcore.Level, msg string) {
+	s.emitWithTime(level, msg, time.Now())
+}
+
+func (s *Scope) emitWithTime(level zapcore.Level, msg string, t time.Time) {
+	if t.IsZero() {
+		t = time.Now()
+	}
+
 	e := zapcore.Entry{
 		Message:    msg,
 		Level:      level,
-		Time:       time.Now(),
+		Time:       t,
 		LoggerName: s.nameToEmit,
 	}
 

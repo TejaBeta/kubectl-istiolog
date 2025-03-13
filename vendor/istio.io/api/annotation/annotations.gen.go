@@ -29,10 +29,13 @@ const (
 	Unknown ResourceTypes = iota
     Any
     AuthorizationPolicy
+    Gateway
+    GatewayClass
     Ingress
     Namespace
     Pod
     Service
+    ServiceEntry
     WorkloadEntry
 )
 
@@ -43,14 +46,20 @@ func (r ResourceTypes) String() string {
 	case 2:
 		return "AuthorizationPolicy"
 	case 3:
-		return "Ingress"
+		return "Gateway"
 	case 4:
-		return "Namespace"
+		return "GatewayClass"
 	case 5:
-		return "Pod"
+		return "Ingress"
 	case 6:
-		return "Service"
+		return "Namespace"
 	case 7:
+		return "Pod"
+	case 8:
+		return "Service"
+	case 9:
+		return "ServiceEntry"
+	case 10:
 		return "WorkloadEntry"
 	}
 	return "Unknown"
@@ -91,17 +100,6 @@ var (
 		},
 	}
 
-	AlphaIdentity = Instance {
-		Name:          "alpha.istio.io/identity",
-		Description:   "Identity for the workload.",
-		FeatureStatus: Alpha,
-		Hidden:        true,
-		Deprecated:    true,
-		Resources: []ResourceTypes{
-			Pod,
-		},
-	}
-
 	AlphaKubernetesServiceAccounts = Instance {
 		Name:          "alpha.istio.io/kubernetes-serviceaccounts",
 		Description:   "Specifies the Kubernetes service accounts that are "+
@@ -111,6 +109,61 @@ var (
 		Deprecated:    true,
 		Resources: []ResourceTypes{
 			Service,
+		},
+	}
+
+	AmbientBypassInboundCapture = Instance {
+		Name:          "ambient.istio.io/bypass-inbound-capture",
+		Description:   `When specified on a "Pod" enrolled in ambient mesh, only outbound traffic will be captured.
+This is intended to be used when enrolling a workload that only receives traffic from out-of-the-mesh clients, such as third party ingress controllers.
+`,
+		FeatureStatus: Alpha,
+		Hidden:        true,
+		Deprecated:    false,
+		Resources: []ResourceTypes{
+			Pod,
+		},
+	}
+
+	AmbientDnsCapture = Instance {
+		Name:          "ambient.istio.io/dns-capture",
+		Description:   `When specified on a "Pod" enrolled in ambient mesh, controls whether DNS traffic (TCP and UDP on port 53) will be captured and proxied in ambient.
+Note that setting this to "false" will break some Istio features, such as ServiceEntries and egress waypoints, but may be desirable for workloads that interact poorly with DNS proxies.
+`,
+		FeatureStatus: Alpha,
+		Hidden:        true,
+		Deprecated:    false,
+		Resources: []ResourceTypes{
+			Pod,
+		},
+	}
+
+	AmbientRedirection = Instance {
+		Name:          "ambient.istio.io/redirection",
+		Description:   `Automatically configured by Istio to indicate a Pod was successfully enrolled in ambient mode.
+This shows the actual state; to specify intent that a workload should be in ambient mode, see "istio.io/dataplane-mode".
+User should not manually modify this annotation.`,
+		FeatureStatus: Beta,
+		Hidden:        false,
+		Deprecated:    false,
+		Resources: []ResourceTypes{
+			Pod,
+		},
+	}
+
+	AmbientWaypointInboundBinding = Instance {
+		Name:          "ambient.istio.io/waypoint-inbound-binding",
+		Description:   `When set on a waypoint (either by its specific "Gateway", or for the entire collection on the "GatewayClass"),
+indicates how traffic should be sent to the waypoint. If unset, traffic will be sent to the waypoint as HBONE directly.
+
+This takes the format: "<protocol>" or "<protocol>/<port>".
+`,
+		FeatureStatus: Alpha,
+		Hidden:        true,
+		Deprecated:    false,
+		Resources: []ResourceTypes{
+			GatewayClass,
+			Gateway,
 		},
 	}
 
@@ -144,6 +197,30 @@ var (
 		},
 	}
 
+	GatewayNameOverride = Instance {
+		Name:          "gateway.istio.io/name-override",
+		Description:   `Overrides the name of the generated "Deployment" and "Service" resource when using [Gateway auto-deployment](/docs/tasks/traffic-management/ingress/gateway-api/#automated-deployment)
+`,
+		FeatureStatus: Alpha,
+		Hidden:        true,
+		Deprecated:    false,
+		Resources: []ResourceTypes{
+			Gateway,
+		},
+	}
+
+	GatewayServiceAccount = Instance {
+		Name:          "gateway.istio.io/service-account",
+		Description:   `Overrides the name of the generated "ServiceAccount" resource when using [Gateway auto-deployment](/docs/tasks/traffic-management/ingress/gateway-api/#automated-deployment)
+`,
+		FeatureStatus: Alpha,
+		Hidden:        true,
+		Deprecated:    false,
+		Resources: []ResourceTypes{
+			Gateway,
+		},
+	}
+
 	InjectTemplates = Instance {
 		Name:          "inject.istio.io/templates",
 		Description:   "The name of the inject template(s) to use, as a comma "+
@@ -155,41 +232,6 @@ var (
 		Deprecated:    false,
 		Resources: []ResourceTypes{
 			Pod,
-		},
-	}
-
-	OperatorInstallChartOwner = Instance {
-		Name:          "install.operator.istio.io/chart-owner",
-		Description:   "Represents the name of the chart used to create this "+
-                        "resource.",
-		FeatureStatus: Alpha,
-		Hidden:        false,
-		Deprecated:    false,
-		Resources: []ResourceTypes{
-			Any,
-		},
-	}
-
-	OperatorInstallOwnerGeneration = Instance {
-		Name:          "install.operator.istio.io/owner-generation",
-		Description:   "Represents the generation to which the resource was last "+
-                        "reconciled.",
-		FeatureStatus: Alpha,
-		Hidden:        false,
-		Deprecated:    false,
-		Resources: []ResourceTypes{
-			Any,
-		},
-	}
-
-	OperatorInstallVersion = Instance {
-		Name:          "install.operator.istio.io/version",
-		Description:   "Represents the Istio version associated with the resource",
-		FeatureStatus: Alpha,
-		Hidden:        false,
-		Deprecated:    false,
-		Resources: []ResourceTypes{
-			Any,
 		},
 	}
 
@@ -243,6 +285,18 @@ var (
 		},
 	}
 
+	IoIstioRerouteVirtualInterfaces = Instance {
+		Name:          "istio.io/reroute-virtual-interfaces",
+		Description:   `A comma separated list of virtual interfaces whose inbound traffic will be unconditionally treated as outbound. This allows workloads using virtualized networking (kubeVirt, VMs, docker-in-docker, etc) to function correctly with mesh traffic capture.
+`,
+		FeatureStatus: Alpha,
+		Hidden:        false,
+		Deprecated:    false,
+		Resources: []ResourceTypes{
+			Pod,
+		},
+	}
+
 	IoIstioRev = Instance {
 		Name:          "istio.io/rev",
 		Description:   "Specifies a control plane revision to which a given proxy "+
@@ -285,14 +339,51 @@ var (
 	NetworkingExportTo = Instance {
 		Name:          "networking.istio.io/exportTo",
 		Description:   "Specifies the namespaces to which this service should be "+
-                        "exported to. A value of '*' indicates it is reachable "+
-                        "within the mesh '.' indicates it is reachable within its "+
-                        "namespace.",
+                        "exported to. A value of `*` indicates it is reachable "+
+                        "within the mesh. `.` indicates it is reachable within its "+
+                        "namespace. '~' indicates it is hidden and exported to no "+
+                        "namespaces. Additionally, a list of comma separated "+
+                        "namespace names can be specified.",
 		FeatureStatus: Alpha,
 		Hidden:        false,
 		Deprecated:    false,
 		Resources: []ResourceTypes{
 			Service,
+		},
+	}
+
+	NetworkingServiceType = Instance {
+		Name:          "networking.istio.io/service-type",
+		Description:   `Overrides the type of the generated "Service" resource when using [Gateway auto-deployment](/docs/tasks/traffic-management/ingress/gateway-api/#automated-deployment)
+`,
+		FeatureStatus: Alpha,
+		Hidden:        true,
+		Deprecated:    false,
+		Resources: []ResourceTypes{
+			Gateway,
+		},
+	}
+
+	NetworkingTrafficDistribution = Instance {
+		Name:          "networking.istio.io/traffic-distribution",
+		Description:   `Controls how traffic is distributed across the set of available endpoints.
+
+At this time, this annotation only impacts routing done by Ztunnel.
+
+Accepted values:
+* "PreferClose": endpoints will be categorized by how "close" they are, consider network, region, zone, and subzone.
+  Traffic will be prioritized to the closest healthy endpoints.
+  For example, if I have a Service with "PreferClose" set, with endpoints in zones "us-west,us-west,us-east". When 
+  sending traffic from a client in zone "us-west", all traffic will go to the two "us-west" backends.
+  If one those backends become unhealthy, all traffic will go to the remaining endpoint in "us-west".
+  If that backend becomes unhealthy, traffic will sent to "us-east".
+`,
+		FeatureStatus: Alpha,
+		Hidden:        false,
+		Deprecated:    false,
+		Resources: []ResourceTypes{
+			Service,
+			ServiceEntry,
 		},
 	}
 
@@ -417,20 +508,6 @@ var (
 		},
 	}
 
-	SidecarControlPlaneAuthPolicy = Instance {
-		Name:          "sidecar.istio.io/controlPlaneAuthPolicy",
-		Description:   "Specifies the auth policy used by the Istio control "+
-                        "plane. If NONE, traffic will not be encrypted. If "+
-                        "MUTUAL_TLS, traffic between Envoy sidecar will be wrapped "+
-                        "into mutual TLS connections.",
-		FeatureStatus: Alpha,
-		Hidden:        false,
-		Deprecated:    true,
-		Resources: []ResourceTypes{
-			Pod,
-		},
-	}
-
 	SidecarDiscoveryAddress = Instance {
 		Name:          "sidecar.istio.io/discoveryAddress",
 		Description:   "Specifies the XDS discovery address to be used by the "+
@@ -443,18 +520,6 @@ var (
 		},
 	}
 
-	SidecarEnableCoreDump = Instance {
-		Name:          "sidecar.istio.io/enableCoreDump",
-		Description:   "Specifies whether or not an Envoy sidecar should enable "+
-                        "core dump.",
-		FeatureStatus: Alpha,
-		Hidden:        false,
-		Deprecated:    false,
-		Resources: []ResourceTypes{
-			Pod,
-		},
-	}
-
 	SidecarExtraStatTags = Instance {
 		Name:          "sidecar.istio.io/extraStatTags",
 		Description:   "An additional list of tags to extract from the in-proxy "+
@@ -462,7 +527,7 @@ var (
                         "present in this list.",
 		FeatureStatus: Alpha,
 		Hidden:        false,
-		Deprecated:    false,
+		Deprecated:    true,
 		Resources: []ResourceTypes{
 			Pod,
 		},
@@ -471,8 +536,10 @@ var (
 	SidecarInject = Instance {
 		Name:          "sidecar.istio.io/inject",
 		Description:   "Specifies whether or not an Envoy sidecar should be "+
-                        "automatically injected into the workload. Deprecated in "+
-                        "favor of `sidecar.istio.io/inject` label.",
+                        "automatically injected into the workload. This annotation "+
+                        "has been deprecated in favor of the "+
+                        "`sidecar.istio.io/inject` label documented "+
+                        "[here](/docs/reference/config/labels/#SidecarInject).",
 		FeatureStatus: Beta,
 		Hidden:        false,
 		Deprecated:    true,
@@ -496,6 +563,19 @@ var (
 	SidecarLogLevel = Instance {
 		Name:          "sidecar.istio.io/logLevel",
 		Description:   "Specifies the log level for Envoy.",
+		FeatureStatus: Alpha,
+		Hidden:        false,
+		Deprecated:    false,
+		Resources: []ResourceTypes{
+			Pod,
+		},
+	}
+
+	SidecarNativeSidecar = Instance {
+		Name:          "sidecar.istio.io/nativeSidecar",
+		Description:   "Specifies if the istio-proxy sidecar should be injected "+
+                        "as a native sidecar or not. Takes precedence over the "+
+                        "ENABLE_NATIVE_SIDECARS environment variable.",
 		FeatureStatus: Alpha,
 		Hidden:        false,
 		Deprecated:    false,
@@ -813,10 +893,12 @@ var (
 	SidecarTrafficKubevirtInterfaces = Instance {
 		Name:          "traffic.sidecar.istio.io/kubevirtInterfaces",
 		Description:   "A comma separated list of virtual interfaces whose "+
-                        "inbound traffic (from VM) will be treated as outbound.",
+                        "inbound traffic (from VM) will be treated as outbound. "+
+                        "Deprecated in favor of "+
+                        "`istio.io/redirect-virtual-interfaces`",
 		FeatureStatus: Alpha,
 		Hidden:        false,
-		Deprecated:    false,
+		Deprecated:    true,
 		Resources: []ResourceTypes{
 			Pod,
 		},
@@ -827,22 +909,27 @@ var (
 func AllResourceAnnotations() []*Instance {
 	return []*Instance {
 		&AlphaCanonicalServiceAccounts,
-		&AlphaIdentity,
 		&AlphaKubernetesServiceAccounts,
+		&AmbientBypassInboundCapture,
+		&AmbientDnsCapture,
+		&AmbientRedirection,
+		&AmbientWaypointInboundBinding,
 		&GalleyAnalyzeSuppress,
 		&GatewayControllerVersion,
+		&GatewayNameOverride,
+		&GatewayServiceAccount,
 		&InjectTemplates,
-		&OperatorInstallChartOwner,
-		&OperatorInstallOwnerGeneration,
-		&OperatorInstallVersion,
 		&IoIstioAutoRegistrationGroup,
 		&IoIstioConnectedAt,
 		&IoIstioDisconnectedAt,
 		&IoIstioDryRun,
+		&IoIstioRerouteVirtualInterfaces,
 		&IoIstioRev,
 		&IoIstioWorkloadController,
 		&IoKubernetesIngressClass,
 		&NetworkingExportTo,
+		&NetworkingServiceType,
+		&NetworkingTrafficDistribution,
 		&PrometheusMergeMetrics,
 		&ProxyConfig,
 		&ProxyOverrides,
@@ -853,13 +940,12 @@ func AllResourceAnnotations() []*Instance {
 		&SidecarAgentLogLevel,
 		&SidecarBootstrapOverride,
 		&SidecarComponentLogLevel,
-		&SidecarControlPlaneAuthPolicy,
 		&SidecarDiscoveryAddress,
-		&SidecarEnableCoreDump,
 		&SidecarExtraStatTags,
 		&SidecarInject,
 		&SidecarInterceptionMode,
 		&SidecarLogLevel,
+		&SidecarNativeSidecar,
 		&SidecarProxyCPU,
 		&SidecarProxyCPULimit,
 		&SidecarProxyImage,
@@ -892,10 +978,13 @@ func AllResourceTypes() []string {
 	return []string {
 		"Any",
 		"AuthorizationPolicy",
+		"Gateway",
+		"GatewayClass",
 		"Ingress",
 		"Namespace",
 		"Pod",
 		"Service",
+		"ServiceEntry",
 		"WorkloadEntry",
 	}
 }

@@ -17,6 +17,7 @@ syntax = "proto3";
 import "google/protobuf/wrappers.proto";
 import "google/protobuf/struct.proto";
 import "type/v1beta1/selector.proto";
+import "google/api/field_behavior.proto";
 
 // $schema: istio.extensions.v1alpha1.WasmPlugin
 // $title: Wasm Plugin
@@ -27,7 +28,7 @@ import "type/v1beta1/selector.proto";
 // WasmPlugins provides a mechanism to extend the functionality provided by
 // the Istio proxy through WebAssembly filters.
 //
-// Order of execution (as part of Envoy's filter chain) is determined by
+// The order of execution (as part of Envoy's filter chain) is determined by
 // phase and priority settings, allowing the configuration of complex
 // interactions between user-supplied WasmPlugins and Istio's internal
 // filters.
@@ -208,17 +209,19 @@ package istio.extensions.v1alpha1;
 
 option go_package="istio.io/api/extensions/v1alpha1";
 
-// WasmPlugins provides a mechanism to extend the functionality provided by
+// WasmPlugin provides a mechanism to extend the functionality provided by
 // the Istio proxy through WebAssembly filters.
 //
 // <!-- crd generation tags
 // +cue-gen:WasmPlugin:groupName:extensions.istio.io
-// +cue-gen:WasmPlugin:version:v1alpha1
+// +cue-gen:WasmPlugin:versions:v1alpha1
 // +cue-gen:WasmPlugin:storageVersion
 // +cue-gen:WasmPlugin:annotations:helm.sh/resource-policy=keep
 // +cue-gen:WasmPlugin:labels:app=istio-pilot,chart=istio,heritage=Tiller,release=istio
 // +cue-gen:WasmPlugin:subresource:status
+// +cue-gen:WasmPlugin:spec:required
 // +cue-gen:WasmPlugin:scope:Namespaced
+// +cue-gen:WasmPlugin:releaseChannel:extended
 // +cue-gen:WasmPlugin:resource:categories=istio-io,extensions-istio-io
 // +cue-gen:WasmPlugin:preserveUnknownFields:pluginConfig
 // +cue-gen:WasmPlugin:printerColumn:name=Age,type=date,JSONPath=.metadata.creationTimestamp,description="CreationTimestamp is a timestamp
@@ -233,6 +236,7 @@ option go_package="istio.io/api/extensions/v1alpha1";
 // +genclient
 // +k8s:deepcopy-gen=true
 // -->
+// +kubebuilder:validation:XValidation:message="only one of targetRefs or selector can be set",rule="oneof(self.selector, self.targetRef, self.targetRefs)"
 message WasmPlugin {
   // Criteria used to select the specific set of pods/VMs on which
   // this plugin configuration should be applied. If omitted, this
@@ -240,42 +244,74 @@ message WasmPlugin {
   // namespace. If the `WasmPlugin` is present in the config root
   // namespace, it will be applied to all applicable workloads in any
   // namespace.
+  //
+  // At most, only one of `selector` or `targetRefs` can be set for a given policy.
   istio.type.v1beta1.WorkloadSelector selector = 1;
+
+  // $hide_from_docs
+  istio.type.v1beta1.PolicyTargetReference targetRef = 15;
+
+  // Optional. The targetRefs specifies a list of resources the policy should be
+  // applied to. The targeted resources specified will determine which workloads
+  // the policy applies to.
+  //
+  // Currently, the following resource attachment types are supported:
+  // * `kind: Gateway` with `group: gateway.networking.k8s.io` in the same namespace.
+  // * `kind: GatewayClass` with `group: gateway.networking.k8s.io` in the root namespace.
+  // * `kind: Service` with `group: ""` or `group: "core"` in the same namespace. This type is only supported for waypoints.
+  // * `kind: ServiceEntry` with `group: networking.istio.io` in the same namespace.
+  //
+  // If not set, the policy is applied as defined by the selector.
+  // At most one of the selector and targetRefs can be set.
+  //
+  // NOTE: If you are using the `targetRefs` field in a multi-revision environment with Istio versions prior to 1.22,
+  // it is highly recommended that you pin the policy to a revision running 1.22+ via the `istio.io/rev` label.
+  // This is to prevent proxies connected to older control planes (that don't know about the `targetRefs` field)
+  // from misinterpreting the policy as namespace-wide during the upgrade process.
+  //
+  // NOTE: Waypoint proxies are required to use this field for policies to apply; `selector` policies will be ignored.
+  // +kubebuilder:validation:MaxItems=16
+  repeated istio.type.v1beta1.PolicyTargetReference targetRefs = 16;
 
   // URL of a Wasm module or OCI container. If no scheme is present,
   // defaults to `oci://`, referencing an OCI image. Other valid schemes
   // are `file://` for referencing .wasm module files present locally
-  // within the proxy container, and `http[s]://` for .wasm module files
+  // within the proxy container, and `http[s]://` for `.wasm` module files
   // hosted remotely.
-  string url = 2;
+  // +kubebuilder:validation:MinLength=1
+  // +kubebuilder:validation:XValidation:message="url must have schema one of [http, https, file, oci]",rule="isURL(self) ? (url(self).getScheme() in ['', 'http', 'https', 'oci', 'file']) : (isURL('http://' + self) && url('http://' +self).getScheme() in ['', 'http', 'https', 'oci', 'file'])"
+  string url = 2 [(google.api.field_behavior) = REQUIRED];
 
   // SHA256 checksum that will be used to verify Wasm module or OCI container.
   // If the `url` field already references a SHA256 (using the `@sha256:`
   // notation), it must match the value of this field. If an OCI image is
   // referenced by tag and this field is set, its checksum will be verified
   // against the contents of this field after pulling.
+  // +kubebuilder:validation:Pattern="(^$|^[a-f0-9]{64}$)"
   string sha256 = 3;
 
-  // The pull behaviour to be applied when fetching Wasm module by either 
-  // OCI image or http/https. Only relevant when referencing Wasm module without 
-  // any digest, including the digest in OCI image URL or sha256 field in `vm_config`.
-  // Defaults to IfNotPresent, except when an OCI image is referenced in the `url`
+  // The pull behaviour to be applied when fetching Wasm module by either
+  // OCI image or `http/https`. Only relevant when referencing Wasm module without
+  // any digest, including the digest in OCI image URL or `sha256` field in `vm_config`.
+  // Defaults to `IfNotPresent`, except when an OCI image is referenced in the `url`
   // and the `latest` tag is used, in which case `Always` is the default,
-  // mirroring K8s behaviour.
+  // mirroring Kubernetes behaviour.
   PullPolicy image_pull_policy = 4;
 
   // Credentials to use for OCI image pulling.
-  // Name of a K8s Secret in the same namespace as the `WasmPlugin` that
-  // contains a docker pull secret which is to be used to authenticate
+  // Name of a Kubernetes Secret in the same namespace as the `WasmPlugin` that
+  // contains a Docker pull secret which is to be used to authenticate
   // against the registry when pulling the image.
+  // +kubebuilder:validation:MinLength=1
+  // +kubebuilder:validation:MaxLength=253
   string image_pull_secret = 5;
 
   // $hide_from_docs
   // Public key that will be used to verify signatures of signed OCI images
   // or Wasm modules.
   //
-  // At this moment, various ways for signing/verifying are emerging and being proposed. 
-  // We can observe two major streams for signing OCI images: Cosign from Sigstore and Notary, 
+  // At this moment, various ways for signing/verifying are emerging and being proposed.
+  // We can observe two major streams for signing OCI images: Cosign from Sigstore and Notary,
   // which is used in Docker Content Trust.
   // In case of Wasm module, multiple approaches are still in discussion.
   //  * https://github.com/WebAssembly/design/issues/1413
@@ -283,8 +319,8 @@ message WasmPlugin {
   //
   // In addition, for each method for signing&verifying, we may need to consider to provide
   // additional data or configuration (e.g., key rolling, KMS, root certs, ...) as well.
-  // 
-  // To deal with this situation, we need to elaborate more generic way to describe 
+  //
+  // To deal with this situation, we need to elaborate more generic way to describe
   // how to sign and verify the image or wasm binary, and how to specify relevant data,
   // including this `verification_key`.
   //
@@ -298,6 +334,8 @@ message WasmPlugin {
   // The plugin name to be used in the Envoy configuration (used to be called
   // `rootID`). Some .wasm modules might require this value to select the Wasm
   // plugin to execute.
+  // +kubebuilder:validation:MaxLength=256
+  // +kubebuilder:validation:MinLength=1
   string plugin_name = 8;
 
   // Determines where in the filter chain this `WasmPlugin` is to be injected.
@@ -315,7 +353,7 @@ message WasmPlugin {
   FailStrategy fail_strategy = 13;
 
   // Configuration for a Wasm VM.
-  // more details can be found [here](https://www.envoyproxy.io/docs/envoy/latest/api-v3/extensions/wasm/v3/wasm.proto#extensions-wasm-v3-vmconfig).
+  // More details can be found [here](https://www.envoyproxy.io/docs/envoy/latest/api-v3/extensions/wasm/v3/wasm.proto#extensions-wasm-v3-vmconfig).
   VmConfig vm_config = 11;
 
   // TrafficSelector provides a mechanism to select a specific traffic flow
@@ -324,26 +362,57 @@ message WasmPlugin {
   // traffic will be selected.
   message TrafficSelector {
     // Criteria for selecting traffic by their direction.
-    // Note that CLIENT and SERVER are analogous to OUTBOUND and INBOUND,
+    // Note that `CLIENT` and `SERVER` are analogous to OUTBOUND and INBOUND,
     // respectively.
-    // For the gateway, the field should be CLIENT or CLIENT_AND_SERVER.
-    // If not specified, the default value is CLIENT_AND_SERVER.
+    // For the gateway, the field should be `CLIENT` or `CLIENT_AND_SERVER`.
+    // If not specified, the default value is `CLIENT_AND_SERVER`.
     istio.type.v1beta1.WorkloadMode mode = 1;
-  
+
     // Criteria for selecting traffic by their destination port.
-    // More specifically, for the outbound traffic, the destination port would be 
+    // More specifically, for the outbound traffic, the destination port would be
     // the port of the target service. On the other hand, for the inbound traffic,
-    // the destiation port is the port bound by the server process in the same Pod.
+    // the destination port is the port bound by the server process in the same Pod.
     //
     // If one of the given `ports` is matched, this condition is evaluated to true.
     // If not specified, this condition is evaluated to true for any port.
+    // +listType=map
+    // +listMapKey=number
     repeated istio.type.v1beta1.PortSelector ports = 2;
   }
 
   // Specifies the criteria to determine which traffic is passed to WasmPlugin.
-  // If a traffic satisfies any of TrafficSelectors, 
+  // If a traffic satisfies any of TrafficSelectors,
   // the traffic passes the WasmPlugin.
   repeated TrafficSelector match = 12;
+
+  // Specifies the type of Wasm Extension to be used.
+  PluginType type = 14;
+}
+
+
+// PluginType indicates the type of Wasm extension to be used.
+// There are two types of extensions: `HTTP` and `NETWORK`.
+//
+// The `HTTP` extension works at Layer 7 (for example, as an HTTP filter in Envoy).
+// The detailed HTTP interface can be found here:
+// - [C++](https://github.com/proxy-wasm/proxy-wasm-cpp-host/blob/b7e690703c7f26707438a2f1ebd7c197bc8f0296/include/proxy-wasm/context_interface.h#L199)
+// - [Rust](https://github.com/proxy-wasm/proxy-wasm-rust-sdk/blob/6b47aec926bc29971c727471d6f4c972ec407c7f/src/traits.rs#L309)
+//
+// The `NETWORK` extension works at Layer 4 (for example, as a network filter in Envoy).
+// The detailed `NETWORK` interface can be found here:
+// - [C++](https://github.com/proxy-wasm/proxy-wasm-cpp-host/blob/b7e690703c7f26707438a2f1ebd7c197bc8f0296/include/proxy-wasm/context_interface.h#L257)
+// - [Rust](https://github.com/proxy-wasm/proxy-wasm-rust-sdk/blob/6b47aec926bc29971c727471d6f4c972ec407c7f/src/traits.rs#L257)
+//
+// The `NETWORK` extension can be applied to HTTP traffic as well.
+enum PluginType {
+  // Defaults to HTTP.
+  UNSPECIFIED_PLUGIN_TYPE = 0;
+
+  // Use HTTP Wasm Extension.
+  HTTP = 1;
+  
+  // Use Network Wasm Extension.
+  NETWORK = 2;
 }
 
 // The phase in the filter chain where the plugin will be injected.
@@ -370,8 +439,8 @@ enum PluginPhase {
 // buf:lint:ignore ENUM_VALUE_UPPER_SNAKE_CASE
 // -->
 enum PullPolicy {
-  // Defaults to IfNotPresent, except for OCI images with tag `latest`, for which
-  // the default will be Always.
+  // Defaults to `IfNotPresent`, except for OCI images with tag `latest`, for which
+  // the default will be `Always`.
   UNSPECIFIED_POLICY = 0;
 
   // If an existing version of the image has been pulled before, that
@@ -389,21 +458,27 @@ enum PullPolicy {
 message VmConfig {
   // Specifies environment variables to be injected to this VM.
   // Note that if a key does not exist, it will be ignored.
+  // +kubebuilder:validation:MaxItems=256
+  // +listType=map
+  // +listMapKey=name
   repeated EnvVar env = 1;
 }
 
+// +kubebuilder:validation:XValidation:message="value may only be set when valueFrom is INLINE",rule="default(self.valueFrom, '') != 'HOST' || !has(self.value)"
 message EnvVar {
-  // Required
-  // Name of the environment variable. Must be a C_IDENTIFIER.
-  string name = 1;
+  // Name of the environment variable.
+  // Must be a C_IDENTIFIER.
+  // +kubebuilder:validation:MaxLength=256
+  // +kubebuilder:validation:MinLength=1
+  string name = 1 [(google.api.field_behavior) = REQUIRED];
 
-  // Required
   // Source for the environment variable's value.
   EnvValueSource value_from = 3;
 
   // Value for the environment variable.
-  // Note that if `value_from` is `HOST`, it will be ignored.
-  // Defaults to "". 
+  // Only applicable if `valueFrom` is `HOST`.
+  // Defaults to "".
+  // +kubebuilder:validation:MaxLength=2048
   string value = 2;
 }
 
@@ -411,7 +486,7 @@ enum EnvValueSource {
   // Explicitly given key-value pairs to be injected to this VM
   INLINE = 0;
 
-  // *Istio-proxy's* environment variables exposed to this VM.
+  // Proxy environment variables exposed to this VM.
   HOST = 1;
 }
 

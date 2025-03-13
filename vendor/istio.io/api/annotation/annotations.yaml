@@ -43,19 +43,11 @@ annotations:
     resources:
       - Service
 
-  - name: alpha.istio.io/identity
-    featureStatus: Alpha
-    description: Identity for the workload.
-    deprecated: true
-    hidden: true
-    resources:
-      - Pod
-
   - name: networking.istio.io/exportTo
     featureStatus: Alpha
     description: Specifies the namespaces to which this service should be exported to.
-      A value of '*' indicates it is reachable within the mesh '.' indicates it is
-      reachable within its namespace.
+      A value of `*` indicates it is reachable within the mesh. `.` indicates it is
+      reachable within its namespace. '~' indicates it is hidden and exported to no namespaces. Additionally, a list of comma separated namespace names can be specified.
     deprecated: false
     hidden: false
     resources:
@@ -64,7 +56,8 @@ annotations:
   - name: sidecar.istio.io/inject
     featureStatus: Beta
     description: Specifies whether or not an Envoy sidecar should be automatically
-      injected into the workload. Deprecated in favor of `sidecar.istio.io/inject` label.
+      injected into the workload. This annotation has been deprecated in favor of the
+      `sidecar.istio.io/inject` label documented [here](/docs/reference/config/labels/#SidecarInject).
     deprecated: true
     hidden: false
     resources:
@@ -85,15 +78,6 @@ annotations:
     description: Rewrite HTTP readiness and liveness probes to be redirected to
       the Envoy sidecar.
     deprecated: false
-    hidden: false
-    resources:
-      - Pod
-
-  - name: sidecar.istio.io/controlPlaneAuthPolicy
-    description: Specifies the auth policy used by the Istio control plane. If NONE,
-      traffic will not be encrypted. If MUTUAL_TLS, traffic between Envoy sidecar
-      will be wrapped into mutual TLS connections.
-    deprecated: true
     hidden: false
     resources:
       - Pod
@@ -224,14 +208,6 @@ annotations:
     resources:
       - Pod
 
-  - name: sidecar.istio.io/enableCoreDump
-    featureStatus: Alpha
-    description: Specifies whether or not an Envoy sidecar should enable core dump.
-    deprecated: false
-    hidden: false
-    resources:
-      - Pod
-
   - name: status.sidecar.istio.io/port
     featureStatus: Alpha
     description: Specifies the HTTP status Port for the Envoy sidecar. If zero, the
@@ -260,6 +236,16 @@ annotations:
   - name: sidecar.istio.io/agentLogLevel
     featureStatus: Alpha
     description: Specifies the log output level for pilot-agent.
+    deprecated: false
+    hidden: false
+    resources:
+      - Pod
+
+  - name: sidecar.istio.io/nativeSidecar
+    featureStatus: Alpha
+    description: Specifies if the istio-proxy sidecar should be injected as a
+      native sidecar or not. Takes precedence over the ENABLE_NATIVE_SIDECARS
+      environment variable.
     deprecated: false
     hidden: false
     resources:
@@ -377,8 +363,8 @@ annotations:
   - name: traffic.sidecar.istio.io/kubevirtInterfaces
     featureStatus: Alpha
     description: A comma separated list of virtual interfaces whose inbound traffic
-      (from VM) will be treated as outbound.
-    deprecated: false
+      (from VM) will be treated as outbound. Deprecated in favor of `istio.io/redirect-virtual-interfaces`
+    deprecated: true
     hidden: false
     resources:
       - Pod
@@ -390,30 +376,6 @@ annotations:
     hidden: false
     resources:
       - Ingress
-
-  - name: install.operator.istio.io/chart-owner
-    featureStatus: Alpha
-    description: Represents the name of the chart used to create this resource.
-    deprecated: false
-    hidden: false
-    resources:
-      - Any
-
-  - name: install.operator.istio.io/owner-generation
-    featureStatus: Alpha
-    description: Represents the generation to which the resource was last reconciled.
-    deprecated: false
-    hidden: false
-    resources:
-      - Any
-
-  - name: install.operator.istio.io/version
-    featureStatus: Alpha
-    description: Represents the Istio version associated with the resource
-    deprecated: false
-    hidden: false
-    resources:
-      - Any
 
   - name: galley.istio.io/analyze-suppress
     featureStatus: Alpha
@@ -476,7 +438,7 @@ annotations:
   - name: sidecar.istio.io/extraStatTags
     featureStatus: Alpha
     description: An additional list of tags to extract from the in-proxy Istio Wasm telemetry. Each additional tag needs to be present in this list.
-    deprecated: false
+    deprecated: true
     hidden: false
     resources:
       - Pod
@@ -530,3 +492,103 @@ annotations:
     hidden: true
     resources:
       - Any
+
+  - name: ambient.istio.io/redirection
+    featureStatus: Beta
+    description: |-
+      Automatically configured by Istio to indicate a Pod was successfully enrolled in ambient mode.
+      This shows the actual state; to specify intent that a workload should be in ambient mode, see `istio.io/dataplane-mode`.
+      User should not manually modify this annotation.
+    deprecated: false
+    hidden: false
+    resources:
+      - Pod
+
+  - name: ambient.istio.io/waypoint-inbound-binding
+    featureStatus: Alpha
+    description: |
+      When set on a waypoint (either by its specific `Gateway`, or for the entire collection on the `GatewayClass`),
+      indicates how traffic should be sent to the waypoint. If unset, traffic will be sent to the waypoint as HBONE directly.
+
+      This takes the format: `<protocol>` or `<protocol>/<port>`.
+    deprecated: false
+    hidden: true
+    resources:
+      - GatewayClass
+      - Gateway
+
+  - name: gateway.istio.io/service-account
+    featureStatus: Alpha
+    description: |
+      Overrides the name of the generated `ServiceAccount` resource when using [Gateway auto-deployment](/docs/tasks/traffic-management/ingress/gateway-api/#automated-deployment)
+    deprecated: false
+    hidden: true
+    resources:
+      - Gateway
+
+  - name: gateway.istio.io/name-override
+    featureStatus: Alpha
+    description: |
+      Overrides the name of the generated `Deployment` and `Service` resource when using [Gateway auto-deployment](/docs/tasks/traffic-management/ingress/gateway-api/#automated-deployment)
+    deprecated: false
+    hidden: true
+    resources:
+      - Gateway
+
+  - name: networking.istio.io/service-type
+    featureStatus: Alpha
+    description: |
+      Overrides the type of the generated `Service` resource when using [Gateway auto-deployment](/docs/tasks/traffic-management/ingress/gateway-api/#automated-deployment)
+    deprecated: false
+    hidden: true
+    resources:
+      - Gateway
+
+  - name: networking.istio.io/traffic-distribution
+    featureStatus: Alpha
+    description: |
+      Controls how traffic is distributed across the set of available endpoints.
+      
+      At this time, this annotation only impacts routing done by Ztunnel.
+      
+      Accepted values:
+      * `PreferClose`: endpoints will be categorized by how "close" they are, consider network, region, zone, and subzone.
+        Traffic will be prioritized to the closest healthy endpoints.
+        For example, if I have a Service with `PreferClose` set, with endpoints in zones `us-west,us-west,us-east`. When 
+        sending traffic from a client in zone `us-west`, all traffic will go to the two `us-west` backends.
+        If one those backends become unhealthy, all traffic will go to the remaining endpoint in `us-west`.
+        If that backend becomes unhealthy, traffic will sent to `us-east`.
+    deprecated: false
+    hidden: false
+    resources:
+      - Service
+      - ServiceEntry
+
+  - name: ambient.istio.io/bypass-inbound-capture
+    featureStatus: Alpha
+    description: |
+      When specified on a `Pod` enrolled in ambient mesh, only outbound traffic will be captured.
+      This is intended to be used when enrolling a workload that only receives traffic from out-of-the-mesh clients, such as third party ingress controllers.
+    deprecated: false
+    hidden: true
+    resources:
+      - Pod
+
+  - name: istio.io/reroute-virtual-interfaces
+    featureStatus: Alpha
+    description: |
+      A comma separated list of virtual interfaces whose inbound traffic will be unconditionally treated as outbound. This allows workloads using virtualized networking (kubeVirt, VMs, docker-in-docker, etc) to function correctly with mesh traffic capture.
+    deprecated: false
+    hidden: false
+    resources:
+      - Pod
+
+  - name: ambient.istio.io/dns-capture
+    featureStatus: Alpha
+    description: |
+      When specified on a `Pod` enrolled in ambient mesh, controls whether DNS traffic (TCP and UDP on port 53) will be captured and proxied in ambient.
+      Note that setting this to `false` will break some Istio features, such as ServiceEntries and egress waypoints, but may be desirable for workloads that interact poorly with DNS proxies.
+    deprecated: false
+    hidden: true
+    resources:
+      - Pod

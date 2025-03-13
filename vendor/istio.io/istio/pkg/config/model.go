@@ -35,8 +35,10 @@ import (
 
 	"istio.io/api/label"
 	"istio.io/istio/pilot/pkg/util/protoconv"
+	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/util/gogoprotomarshal"
 	"istio.io/istio/pkg/util/protomarshal"
+	"istio.io/istio/pkg/util/sets"
 )
 
 // Meta is metadata attached to each configuration unit.
@@ -121,6 +123,15 @@ func LabelsInRevision(lbls map[string]string, rev string) bool {
 	return configEnv == rev
 }
 
+func LabelsInRevisionOrTags(lbls map[string]string, rev string, tags sets.Set[string]) bool {
+	if LabelsInRevision(lbls, rev) {
+		return true
+	}
+	configEnv := lbls[label.IoIstioRev.Name]
+	// Otherwise, only return true if revisions equal
+	return tags.Contains(configEnv)
+}
+
 func ObjectInRevision(o *Config, rev string) bool {
 	return LabelsInRevision(o.Labels, rev)
 }
@@ -177,6 +188,16 @@ func ToMap(s Spec) (map[string]any, error) {
 	}
 
 	return data, nil
+}
+
+func ToRaw(s Spec) (json.RawMessage, error) {
+	js, err := ToJSON(s)
+	if err != nil {
+		return nil, err
+	}
+
+	// Unmarshal from json bytes to go map
+	return js, nil
 }
 
 func ToJSON(s Spec) ([]byte, error) {
@@ -283,7 +304,7 @@ func DeepCopy(s any) any {
 	// but also not used by Istio at all.
 	if _, ok := s.(protoreflect.ProtoMessage); ok {
 		if pb, ok := s.(proto.Message); ok {
-			return proto.Clone(pb)
+			return protomarshal.Clone(pb)
 		}
 	}
 
@@ -338,18 +359,8 @@ func (meta *Meta) ToObjectMeta() metav1.ObjectMeta {
 func (c Config) DeepCopy() Config {
 	var clone Config
 	clone.Meta = c.Meta
-	if c.Labels != nil {
-		clone.Labels = make(map[string]string, len(c.Labels))
-		for k, v := range c.Labels {
-			clone.Labels[k] = v
-		}
-	}
-	if c.Annotations != nil {
-		clone.Annotations = make(map[string]string, len(c.Annotations))
-		for k, v := range c.Annotations {
-			clone.Annotations[k] = v
-		}
-	}
+	clone.Labels = maps.Clone(c.Labels)
+	clone.Annotations = maps.Clone(clone.Annotations)
 	clone.Spec = DeepCopy(c.Spec)
 	if c.Status != nil {
 		clone.Status = DeepCopy(c.Status)
@@ -363,6 +374,17 @@ func (c Config) GetName() string {
 
 func (c Config) GetNamespace() string {
 	return c.Namespace
+}
+
+func (c Config) GetCreationTimestamp() time.Time {
+	return c.CreationTimestamp
+}
+
+func (c Config) NamespacedName() kubetypes.NamespacedName {
+	return kubetypes.NamespacedName{
+		Namespace: c.Namespace,
+		Name:      c.Name,
+	}
 }
 
 var _ fmt.Stringer = GroupVersionKind{}
@@ -385,6 +407,14 @@ func (g GroupVersionKind) GroupVersion() string {
 	return g.Group + "/" + g.Version
 }
 
+func FromKubernetesGVK(gvk schema.GroupVersionKind) GroupVersionKind {
+	return GroupVersionKind{
+		Group:   gvk.Group,
+		Version: gvk.Version,
+		Kind:    gvk.Kind,
+	}
+}
+
 // Kubernetes returns the same GVK, using the Kubernetes object type
 func (g GroupVersionKind) Kubernetes() schema.GroupVersionKind {
 	return schema.GroupVersionKind{
@@ -394,13 +424,17 @@ func (g GroupVersionKind) Kubernetes() schema.GroupVersionKind {
 	}
 }
 
+func CanonicalGroup(group string) string {
+	if group != "" {
+		return group
+	}
+	return "core"
+}
+
 // CanonicalGroup returns the group with defaulting applied. This means an empty group will
 // be treated as "core", following Kubernetes API standards
 func (g GroupVersionKind) CanonicalGroup() string {
-	if g.Group != "" {
-		return g.Group
-	}
-	return "core"
+	return CanonicalGroup(g.Group)
 }
 
 // PatchFunc provides the cached config as a base for modification. Only diff the between the cfg
@@ -412,9 +446,9 @@ type Namer interface {
 	GetNamespace() string
 }
 
-func NamespacedName(n Namer) kubetypes.NamespacedName {
+func NamespacedName[T Namer](o T) kubetypes.NamespacedName {
 	return kubetypes.NamespacedName{
-		Namespace: n.GetNamespace(),
-		Name:      n.GetName(),
+		Namespace: o.GetNamespace(),
+		Name:      o.GetName(),
 	}
 }
