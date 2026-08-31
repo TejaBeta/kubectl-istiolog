@@ -4,7 +4,7 @@ go 1.21.1
 
 require (
 	github.com/sirupsen/logrus v1.9.3
-	github.com/spf13/cobra v1.7.0
+	github.com/spf13/cobra v1.10.2
 	istio.io/istio v0.0.0-20230801172513-738d87982f4c
 	k8s.io/api v0.28.2
 	k8s.io/apimachinery v0.28.2
@@ -73,7 +73,7 @@ require (
 	github.com/prometheus/procfs v0.11.0 // indirect
 	github.com/shopspring/decimal v1.3.1 // indirect
 	github.com/spf13/cast v1.5.1 // indirect
-	github.com/spf13/pflag v1.0.5 // indirect
+	github.com/spf13/pflag v1.0.9 // indirect
 	github.com/stoewer/go-strcase v1.3.0 // indirect
 	go.opentelemetry.io/otel v1.16.0 // indirect
 	go.opentelemetry.io/otel/exporters/prometheus v0.39.1-0.20230714155235-03b8c47770f2 // indirect
